@@ -368,6 +368,56 @@
     const DUPLICATE_WINDOW = 2000;
 
     // ============================================================
+    // GLOBAL DEBUGGING FUNCTIONS (call from browser console)
+    // ============================================================
+    window.testAudio = function() {
+      console.log("═══ AUDIO TEST START ═══");
+      console.log("Current mode:", mode);
+      console.log("Audio ready:", audioReady);
+      console.log("Audio context state:", audioCtx ? audioCtx.state : "null");
+      console.log("\nPlaying success sound...");
+      playSuccess();
+      setTimeout(() => {
+        console.log("Playing error sound...");
+        playError();
+      }, 600);
+      setTimeout(() => {
+        console.log("Playing complete sound...");
+        playComplete();
+      }, 1200);
+      console.log("\n⚠️ Check above logs for any errors");
+      console.log("═══ AUDIO TEST END ═══");
+    };
+
+    window.checkAudioStatus = function() {
+      console.log("═══ AUDIO STATUS ═══");
+      console.log("Mode:", mode);
+      console.log("audioReady:", audioReady);
+      console.log("audioCtx exists:", !!audioCtx);
+      console.log("audioCtx.state:", audioCtx ? audioCtx.state : "null");
+      console.log("audioBuffers.success:", audioBuffers.success ? "✓ loaded" : "✗ null");
+      console.log("audioBuffers.error:", audioBuffers.error ? "✓ loaded" : "✗ null");
+      console.log("audioBuffers.complete:", audioBuffers.complete ? "✓ loaded" : "✗ null");
+      console.log("\n💡 Tip: Run testAudio() to test all sounds");
+      console.log("═════════════════════");
+    };
+
+    window.forceResumeAudio = function() {
+      if (audioCtx) {
+        console.log("Forcing AudioContext resume...");
+        audioCtx.resume().then(() => {
+          console.log("✓ AudioContext resumed. State:", audioCtx.state);
+          console.log("Try testAudio() now");
+        }).catch(err => {
+          console.error("❌ Failed to resume:", err);
+        });
+      } else {
+        console.error("❌ No AudioContext exists");
+      }
+    };
+    // ============================================================
+
+    // ============================================================
     // TASK 2: ENHANCED AUDIO SYSTEM - Pre-loaded audio buffers
     // ============================================================
     let audioBuffers = {
@@ -458,27 +508,55 @@
     }
 
     function playAudioBuffer(buffer) {
-      if (!audioReady || !buffer || !audioCtx) return;
+      if (!audioReady || !buffer || !audioCtx) {
+        console.warn("Audio playback blocked:", { 
+          audioReady, 
+          hasBuffer: !!buffer, 
+          hasCtx: !!audioCtx,
+          contextState: audioCtx ? audioCtx.state : 'no context'
+        });
+        return;
+      }
       
       try {
-        const source = audioCtx.createBufferSource();
-        source.buffer = buffer;
-        source.connect(audioCtx.destination);
-        source.start(0);
+        // CRITICAL FIX: iOS/Safari suspends AudioContext after inactivity or mode changes
+        // We must check and resume before playing
+        if (audioCtx.state === "suspended") {
+          console.log("⚠️ AudioContext suspended, resuming before playback...");
+          audioCtx.resume().then(() => {
+            const source = audioCtx.createBufferSource();
+            source.buffer = buffer;
+            source.connect(audioCtx.destination);
+            source.start(0);
+            console.log("✓ Audio played successfully after context resume");
+          }).catch(err => {
+            console.error("❌ Failed to resume AudioContext:", err);
+          });
+        } else {
+          // Context is running, play immediately
+          const source = audioCtx.createBufferSource();
+          source.buffer = buffer;
+          source.connect(audioCtx.destination);
+          source.start(0);
+          console.log("✓ Audio played (context state:", audioCtx.state + ")");
+        }
       } catch (e) {
-        console.warn("Audio playback failed:", e);
+        console.error("❌ Audio playback failed:", e);
       }
     }
 
     function playSuccess() {
+      console.log("🔊 Playing SUCCESS sound (mode:", mode + ")");
       playAudioBuffer(audioBuffers.success);
     }
 
     function playError() {
+      console.log("🔊 Playing ERROR sound (mode:", mode + ")");
       playAudioBuffer(audioBuffers.error);
     }
 
     function playComplete() {
+      console.log("🔊 Playing COMPLETE sound (mode:", mode + ")");
       playAudioBuffer(audioBuffers.complete);
     }
     // ============================================================
@@ -998,9 +1076,23 @@
         updateBanner("SAVING IN PROGRESS", "status-warning");
         return;
       }
+      
+      console.log("🔄 Mode changing from", mode, "to", m);
+      
       mode = m;
       document.getElementById("btnBorrow").classList.toggle("active", m === "borrow");
       document.getElementById("btnReturn").classList.toggle("active", m === "return");
+      
+      // Log audio state when mode changes
+      if (audioCtx) {
+        console.log("📱 AudioContext state after mode change:", audioCtx.state);
+        if (audioCtx.state === "suspended") {
+          console.warn("⚠️ AudioContext is SUSPENDED - audio will auto-resume on next playback");
+        }
+      } else {
+        console.warn("⚠️ No AudioContext - audio may not be initialized");
+      }
+      
       resetAll();
       syncSystemCache();
     }
