@@ -1,0 +1,1079 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>iPad Express Checkout</title>
+
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+
+  <style>
+    :root{
+      --primary:#4f46e5;
+      --success:#10b981;
+      --bg:#0f172a;
+      --panel:#1e293b;
+      --danger:#ef4444;
+      --gray:#334155;
+      --warning:#f59e0b;
+      --vh:1vh;
+    }
+
+    *{ box-sizing:border-box; }
+
+    body{
+      font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+      background:var(--bg);
+      color:#fff;
+      margin:0;
+      display:flex;
+      flex-direction:column;
+      height:calc(var(--vh) * 100);
+      overflow:hidden;
+      -webkit-user-select:none;
+      -webkit-tap-highlight-color:transparent;
+    }
+
+    .header{
+      padding:10px;
+      background:var(--panel);
+      border-bottom:1px solid var(--gray);
+      flex-shrink:0;
+    }
+
+    .mode-toggle{
+      display:flex;
+      background:#0f172a;
+      border-radius:10px;
+      padding:4px;
+      margin:0 auto;
+      width:min(520px, 100%);
+    }
+
+    .mode-btn{
+      flex:1;
+      padding:12px;
+      border:none;
+      border-radius:8px;
+      color:#94a3b8;
+      background:none;
+      font-size:1.05rem;
+      font-weight:800;
+      cursor:pointer;
+      transition:0.2s;
+    }
+
+    .mode-btn.active{
+      background:var(--primary);
+      color:#fff;
+    }
+
+    #reader-container{
+      width:min(560px, 100%);
+      margin:10px auto 0;
+      padding:0 12px;
+      position:relative;
+      flex-shrink:0;
+    }
+
+    #reader{
+      width:100% !important;
+      height:clamp(220px, 38vh, 360px) !important;
+      background:#000;
+      border-radius:14px;
+      overflow:hidden;
+      border:2px solid var(--gray);
+      position:relative;
+    }
+
+    #reader video{
+      width:100% !important;
+      height:100% !important;
+      object-fit:cover !important;
+    }
+
+    .scan-overlay{
+      position:absolute;
+      top:50%;
+      left:50%;
+      transform:translate(-50%, -50%);
+      width:min(260px, 72vw);
+      height:min(260px, 72vw);
+      max-width:260px;
+      max-height:260px;
+      border:3px solid var(--success);
+      border-radius:14px;
+      pointer-events:none;
+      opacity:0.55;
+      transition:opacity 0.2s, border-color 0.2s;
+    }
+
+    .scan-overlay.scanning{
+      animation:pulse 2s infinite;
+    }
+
+    .scan-overlay.cooldown{
+      border-color:var(--warning);
+      opacity:0.3;
+      animation:none;
+    }
+
+    @keyframes pulse{
+      0%,100%{ opacity:0.55; }
+      50%{ opacity:0.25; }
+    }
+
+    .scan-corner{
+      position:absolute;
+      width:30px;
+      height:30px;
+      border:3px solid var(--success);
+      transition:border-color 0.2s;
+    }
+    
+    .scan-overlay.cooldown .scan-corner{
+      border-color:var(--warning);
+    }
+    
+    .scan-corner.tl{ top:0; left:0; border-right:none; border-bottom:none; }
+    .scan-corner.tr{ top:0; right:0; border-left:none; border-bottom:none; }
+    .scan-corner.bl{ bottom:0; left:0; border-right:none; border-top:none; }
+    .scan-corner.br{ bottom:0; right:0; border-left:none; border-top:none; }
+
+    .start-overlay{
+      position:absolute;
+      inset:0 12px 0 12px;
+      top:0;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      background:rgba(15,23,42,0.65);
+      border-radius:14px;
+      z-index:5;
+      height:clamp(220px, 38vh, 360px);
+      pointer-events:auto;
+    }
+
+    .start-btn{
+      border:none;
+      border-radius:14px;
+      padding:14px 18px;
+      font-weight:900;
+      font-size:1rem;
+      color:#fff;
+      background:var(--primary);
+      cursor:pointer;
+      box-shadow:0 10px 25px rgba(0,0,0,0.35);
+    }
+
+    .start-btn:active{
+      opacity:0.85;
+      transform:scale(0.98);
+    }
+
+    .overlay{
+      padding:16px;
+      background:var(--panel);
+      border-radius:24px 24px 0 0;
+      box-shadow:0 -5px 20px rgba(0,0,0,0.5);
+      flex:1;
+      display:flex;
+      flex-direction:column;
+      overflow:hidden;
+      width:min(900px, 100%);
+      margin:0 auto;
+    }
+
+    #userPanel{
+      display:none;
+      justify-content:space-between;
+      gap:10px;
+      padding:12px;
+      background:#0f172a;
+      border-radius:10px;
+      margin-bottom:10px;
+      border-left:4px solid var(--primary);
+      flex-shrink:0;
+      align-items:center;
+    }
+
+    .status-banner{
+      text-align:center;
+      padding:14px;
+      border-radius:10px;
+      font-weight:900;
+      margin-bottom:10px;
+      flex-shrink:0;
+      font-size:0.95rem;
+      user-select:none;
+    }
+
+    .status-waiting{ background:var(--gray); color:#cbd5e1; }
+    .status-success{ background:var(--success); color:#fff; border:2px solid #6ee7b7; }
+    .status-error{ background:var(--danger); color:#fff; }
+    .status-warning{ background:var(--warning); color:#fff; }
+
+    #historyList{
+      flex:1;
+      overflow:auto;
+      background:#0f172a;
+      border-radius:12px;
+      margin-bottom:12px;
+      border:1px solid var(--gray);
+      display:none;
+    }
+
+    .history-row{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      padding:12px;
+      border-bottom:1px solid #334155;
+    }
+
+    .history-label{
+      font-weight:900;
+      letter-spacing:1px;
+      color:#e2e8f0;
+    }
+
+    .action-bar{
+      display:grid;
+      grid-template-columns:1fr 1fr 1fr;
+      gap:10px;
+      height:56px;
+      flex-shrink:0;
+    }
+
+    .btn-action{
+      border-radius:12px;
+      border:none;
+      background:var(--gray);
+      color:#fff;
+      font-size:1rem;
+      font-weight:900;
+      cursor:pointer;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      transition:0.2s;
+      min-height:44px;
+    }
+
+    .btn-finish{ background:var(--primary); }
+    .btn-clear{ background:#475569; }
+
+    .btn-action:active{
+      opacity:0.7;
+      transform:scale(0.98);
+    }
+
+    .btn-finish:disabled{
+      opacity:0.5;
+      cursor:not-allowed;
+    }
+
+    .delete-btn{
+      background:rgba(239,68,68,0.2);
+      color:#ff8080;
+      border:1px solid var(--danger);
+      padding:8px 12px;
+      border-radius:10px;
+      font-weight:900;
+      font-size:0.8rem;
+      cursor:pointer;
+    }
+
+    @media (max-width:480px){
+      .overlay{ padding:14px; }
+      .mode-btn{ font-size:0.95rem; padding:10px; }
+      .action-bar{ gap:8px; height:52px; }
+      .btn-action{ font-size:0.9rem; }
+      .scan-overlay{ border-width:2px; }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="header">
+    <div class="mode-toggle">
+      <button id="btnBorrow" class="mode-btn active" onclick="setMode('borrow')">BORROW</button>
+      <button id="btnReturn" class="mode-btn" onclick="setMode('return')">RETURN</button>
+    </div>
+  </div>
+
+  <div id="reader-container">
+    <div id="reader"></div>
+
+    <div class="scan-overlay scanning">
+      <div class="scan-corner tl"></div>
+      <div class="scan-corner tr"></div>
+      <div class="scan-corner bl"></div>
+      <div class="scan-corner br"></div>
+    </div>
+
+    <div id="startOverlay" class="start-overlay">
+      <button class="start-btn" onclick="userStart()">Tap to Start Scanning</button>
+    </div>
+  </div>
+
+  <div class="overlay">
+    <div id="userPanel">
+      <div>User: <b id="currentUserId" style="color:var(--primary)">-</b></div>
+      <div id="sessionCount">Qty: 0</div>
+    </div>
+
+    <div id="statusBanner" class="status-banner status-waiting">TAP TO START</div>
+
+    <div id="historyList"></div>
+
+    <div class="action-bar">
+      <button class="btn-action btn-clear" onclick="clearAll()">Clear All</button>
+      <button class="btn-action" onclick="toggleHistory()">Review</button>
+      <button id="finishBtn" class="btn-action btn-finish" onclick="finishSession()">Finish & Save</button>
+    </div>
+  </div>
+
+  <script>
+    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwRxHB9wRtAMVvCD9blsJdw3QyKxKdu3MPaeYG4scD8vk-Ep4ZB0uhZJNmFvqKDimQ/exec";
+    const DEBUG_MODE = false;
+
+    let mode = "borrow";
+    let userId = null;
+    let sessionHistory = [];
+    let isProcessing = false;
+
+    let unavailableIpads = [];
+    let unavailableCacheTs = 0;
+
+    let knownIpadsSet = new Set();
+    let knownUsersSet = new Set();
+    let inventoryCacheTs = 0;
+    let rosterCacheTs = 0;
+
+    let lastScanned = null;
+    let lastScanTime = 0;
+
+    let html5QrCode = null;
+    let scannerStarted = false;
+
+    let audioCtx = null;
+
+    let historyDom = new Map();
+
+    // Cooldown state management
+    let isInCooldown = false;
+    let cooldownTimer = null;
+    const COOLDOWN_DURATION = 600;
+    const DUPLICATE_WINDOW = 2000;
+
+    // ============================================================
+    // TASK 2: ENHANCED AUDIO SYSTEM - Pre-loaded audio buffers
+    // ============================================================
+    let audioBuffers = {
+      success: null,
+      error: null,
+      complete: null
+    };
+    let audioReady = false;
+
+    async function initEnhancedAudio() {
+      try {
+        if (!audioCtx) {
+          audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        
+        if (audioCtx.state === "suspended") {
+          await audioCtx.resume();
+        }
+
+        // Generate compact, cute audio buffers
+        audioBuffers.success = generateSuccessChime(audioCtx);
+        audioBuffers.error = generateErrorBuzz(audioCtx);
+        audioBuffers.complete = generateCompleteTriad(audioCtx);
+        
+        audioReady = true;
+        log("Enhanced audio system initialized");
+      } catch (e) {
+        console.warn("Audio initialization failed:", e);
+      }
+    }
+
+    // Generate a pleasant "pop" chime for success
+    function generateSuccessChime(ctx) {
+      const sampleRate = ctx.sampleRate;
+      const duration = 0.15; // 150ms - very quick
+      const buffer = ctx.createBuffer(1, sampleRate * duration, sampleRate);
+      const data = buffer.getChannelData(0);
+      
+      const freq = 880; // A5 - bright, pleasant
+      for (let i = 0; i < buffer.length; i++) {
+        const t = i / sampleRate;
+        const envelope = Math.exp(-t * 15); // Fast decay
+        const wave = Math.sin(2 * Math.PI * freq * t);
+        data[i] = wave * envelope * 0.15; // Gentle volume
+      }
+      return buffer;
+    }
+
+    // Generate a gentle descending buzz for errors
+    function generateErrorBuzz(ctx) {
+      const sampleRate = ctx.sampleRate;
+      const duration = 0.2; // 200ms
+      const buffer = ctx.createBuffer(1, sampleRate * duration, sampleRate);
+      const data = buffer.getChannelData(0);
+      
+      for (let i = 0; i < buffer.length; i++) {
+        const t = i / sampleRate;
+        const progress = t / duration;
+        const freq = 350 - (progress * 120); // Descend from 350Hz to 230Hz
+        const envelope = Math.exp(-t * 8);
+        const wave = Math.sin(2 * Math.PI * freq * t);
+        data[i] = wave * envelope * 0.12;
+      }
+      return buffer;
+    }
+
+    // Generate a triumphant three-note chord for completion
+    function generateCompleteTriad(ctx) {
+      const sampleRate = ctx.sampleRate;
+      const duration = 0.25; // 250ms
+      const buffer = ctx.createBuffer(1, sampleRate * duration, sampleRate);
+      const data = buffer.getChannelData(0);
+      
+      const freqs = [523.25, 659.25, 783.99]; // C-E-G major triad
+      
+      for (let i = 0; i < buffer.length; i++) {
+        const t = i / sampleRate;
+        const envelope = Math.exp(-t * 6);
+        let sample = 0;
+        
+        for (const freq of freqs) {
+          sample += Math.sin(2 * Math.PI * freq * t) * 0.05; // Mix three notes
+        }
+        
+        data[i] = sample * envelope;
+      }
+      return buffer;
+    }
+
+    function playAudioBuffer(buffer) {
+      if (!audioReady || !buffer || !audioCtx) return;
+      
+      try {
+        const source = audioCtx.createBufferSource();
+        source.buffer = buffer;
+        source.connect(audioCtx.destination);
+        source.start(0);
+      } catch (e) {
+        console.warn("Audio playback failed:", e);
+      }
+    }
+
+    function playSuccess() {
+      playAudioBuffer(audioBuffers.success);
+    }
+
+    function playError() {
+      playAudioBuffer(audioBuffers.error);
+    }
+
+    function playComplete() {
+      playAudioBuffer(audioBuffers.complete);
+    }
+    // ============================================================
+    // END ENHANCED AUDIO SYSTEM
+    // ============================================================
+
+    // Device info
+    let deviceInfo = {
+      isIpad: /iPad/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1),
+      isIOS: /iPhone|iPad|iPod/.test(navigator.userAgent),
+      screenWidth: window.innerWidth,
+      screenHeight: window.innerHeight,
+      isPortrait: window.innerHeight > window.innerWidth
+    };
+
+    let scannerAttempt = 0;
+    const MAX_SCANNER_ATTEMPTS = 3;
+
+    function log(...args){ if (DEBUG_MODE) console.log(...args); }
+
+    function setVhUnit(){
+      const vh = window.innerHeight * 0.01;
+      document.documentElement.style.setProperty("--vh", `${vh}px`);
+      
+      deviceInfo.isPortrait = window.innerHeight > window.innerWidth;
+      deviceInfo.screenWidth = window.innerWidth;
+      deviceInfo.screenHeight = window.innerHeight;
+    }
+    window.addEventListener("resize", setVhUnit);
+    window.addEventListener("orientationchange", () => setTimeout(setVhUnit, 250));
+    setVhUnit();
+
+    function vibrate(ms){
+      try{ if (navigator.vibrate) navigator.vibrate(ms); } catch(e){}
+    }
+
+    function updateBanner(text, cls){
+      const b = document.getElementById("statusBanner");
+      b.innerText = text;
+      b.className = "status-banner " + cls;
+      b.onclick = null;
+      log("Banner:", text);
+    }
+
+    function enterCooldown(){
+      isInCooldown = true;
+      const overlay = document.querySelector('.scan-overlay');
+      overlay.classList.remove('scanning');
+      overlay.classList.add('cooldown');
+      
+      log('Entered cooldown mode');
+      
+      cooldownTimer = setTimeout(() => {
+        exitCooldown();
+      }, COOLDOWN_DURATION);
+    }
+
+    function exitCooldown(){
+      isInCooldown = false;
+      const overlay = document.querySelector('.scan-overlay');
+      overlay.classList.remove('cooldown');
+      overlay.classList.add('scanning');
+      
+      log('Exited cooldown - ready for next scan');
+    }
+
+    function makeRequestId(){
+      try{
+        if (crypto && crypto.randomUUID) return crypto.randomUUID();
+      } catch(e){}
+      return "RID_" + Date.now() + "_" + Math.random().toString(16).slice(2);
+    }
+
+    async function userStart(){
+      await initEnhancedAudio(); // Initialize audio on user interaction
+      vibrate(20);
+      document.getElementById("startOverlay").style.display = "none";
+      updateBanner("STARTING CAMERA...", "status-waiting");
+      await startScanner();
+    }
+
+    async function syncSystemCache(retryCount = 0){
+      const maxRetries = 3;
+      try{
+        const resp = await fetch(SCRIPT_URL, { method:"GET", cache:"no-cache" });
+        if (!resp.ok) throw new Error("HTTP " + resp.status);
+        const data = await resp.json();
+        if (!data.success) throw new Error(data.error || "Bad response");
+
+        unavailableIpads = (data.borrowed || [])
+          .map(x => (x || "").toString().trim().toUpperCase())
+          .filter(Boolean);
+        unavailableCacheTs = Date.now();
+
+        const inv = (data.inventoryIds || [])
+          .map(x => (x || "").toString().trim().toUpperCase())
+          .filter(Boolean);
+        knownIpadsSet = new Set(inv);
+        inventoryCacheTs = Date.now();
+
+        const users = (data.userIds || [])
+          .map(x => (x || "").toString().trim().toUpperCase())
+          .filter(Boolean);
+        knownUsersSet = new Set(users);
+        rosterCacheTs = Date.now();
+
+        updateBanner("STEP 1: SCAN USER ID", "status-waiting");
+      } catch(e){
+        log("Sync failed:", e);
+        if (retryCount < maxRetries){
+          setTimeout(() => syncSystemCache(retryCount + 1), 800 * (retryCount + 1));
+        } else {
+          const invAge = Date.now() - inventoryCacheTs;
+          const userAge = Date.now() - rosterCacheTs;
+          if (invAge > 10 * 60 * 1000) knownIpadsSet = new Set();
+          if (userAge > 10 * 60 * 1000) knownUsersSet = new Set();
+          updateBanner("OFFLINE MODE: SCAN USER ID", "status-warning");
+        }
+      }
+    }
+
+    // ============================================================
+    // TASK 1: CAMERA ORIENTATION FIX
+    // ============================================================
+    function getScannerConfig(attempt = 0) {
+      const baseConfig = {
+        disableFlip: false,
+        formatsToSupport: [Html5QrcodeSupportedFormats.QR_CODE]
+      };
+
+      const isPortrait = window.innerHeight > window.innerWidth;
+      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+      
+      log(`Device orientation: ${isPortrait ? 'Portrait' : 'Landscape'}, Mobile: ${isMobile}`);
+      
+      if (attempt === 0) {
+        return {
+          ...baseConfig,
+          fps: 15,
+          // CRITICAL FIX: Dynamic qrbox that adapts to viewport dimensions
+          qrbox: function(viewfinderWidth, viewfinderHeight) {
+            // Use the actual rendered dimensions, not screen dimensions
+            const minDimension = Math.min(viewfinderWidth, viewfinderHeight);
+            const maxDimension = Math.max(viewfinderWidth, viewfinderHeight);
+            
+            // Adjust sizing based on aspect ratio to handle portrait mode
+            const aspectRatio = maxDimension / minDimension;
+            let sizeRatio = 0.7;
+            
+            // In extreme portrait (iPad vertical), use slightly smaller box
+            if (aspectRatio > 1.5) {
+              sizeRatio = 0.65;
+            }
+            
+            const qrboxSize = Math.floor(minDimension * sizeRatio);
+            
+            log(`QRBox calculated: ${qrboxSize}px from viewport ${viewfinderWidth}x${viewfinderHeight}`);
+            
+            return {
+              width: qrboxSize,
+              height: qrboxSize
+            };
+          },
+          // CRITICAL FIX: Let browser auto-select optimal video constraints
+          // No explicit width/height/aspectRatio that could conflict with orientation
+          aspectRatio: undefined,
+          videoConstraints: {
+            facingMode: { ideal: "environment" },
+            // Remove fixed dimensions - let browser adapt to orientation
+            advanced: [
+              { focusMode: "continuous" },
+              { zoom: { ideal: 1.0 } }
+            ]
+          }
+        };
+      } else if (attempt === 1) {
+        // Fallback with more conservative settings
+        return {
+          ...baseConfig,
+          fps: 12,
+          qrbox: function(viewfinderWidth, viewfinderHeight) {
+            const minEdge = Math.min(viewfinderWidth, viewfinderHeight);
+            return Math.floor(minEdge * 0.6);
+          },
+          videoConstraints: {
+            facingMode: "environment"
+          }
+        };
+      } else {
+        // Final fallback: fixed box size
+        return {
+          ...baseConfig,
+          fps: 10,
+          qrbox: 220
+        };
+      }
+    }
+
+    async function startScanner(){
+      try{
+        if (scannerStarted) return;
+
+        html5QrCode = new Html5Qrcode("reader", {
+          verbose: DEBUG_MODE,
+          // ORIENTATION FIX: Enable experimental features for better orientation handling
+          experimentalFeatures: {
+            useBarCodeDetectorIfSupported: true
+          }
+        });
+
+        const config = getScannerConfig(scannerAttempt);
+        
+        log("Starting scanner (attempt " + (scannerAttempt + 1) + ")");
+        log("Orientation:", deviceInfo.isPortrait ? "Portrait" : "Landscape");
+        log("Config:", config);
+
+        const devices = await Html5Qrcode.getCameras();
+        if (!devices || devices.length === 0) throw new Error("No camera found");
+
+        log("Available cameras:", devices.length);
+
+        // ORIENTATION FIX: Use config.videoConstraints if available, else simple facingMode
+        const cameraConstraints = config.videoConstraints || { facingMode: "environment" };
+        
+        await html5QrCode.start(
+          cameraConstraints,
+          config,
+          onScanSuccess,
+          onScanError
+        );
+
+        scannerStarted = true;
+        updateBanner("SYNCING STATUS...", "status-waiting");
+        await syncSystemCache();
+      } catch(err){
+        console.error("Scanner start error (attempt " + (scannerAttempt + 1) + "):", err);
+        
+        if (scannerAttempt < MAX_SCANNER_ATTEMPTS - 1) {
+          scannerAttempt++;
+          scannerStarted = false;
+          html5QrCode = null;
+          
+          updateBanner("RETRYING CAMERA... (" + (scannerAttempt + 1) + "/" + MAX_SCANNER_ATTEMPTS + ")", "status-warning");
+          await new Promise(r => setTimeout(r, 500));
+          await startScanner();
+          return;
+        }
+
+        updateBanner("CAMERA ERROR. TAP TO RETRY", "status-error");
+        document.getElementById("startOverlay").style.display = "flex";
+        document.getElementById("statusBanner").onclick = () => {
+          document.getElementById("statusBanner").onclick = null;
+          scannerAttempt = 0;
+          userStart();
+        };
+      }
+    }
+    // ============================================================
+    // END CAMERA ORIENTATION FIX
+    // ============================================================
+
+    function onScanError(errorMessage) {
+      // Silently ignore - fires constantly when no QR detected
+    }
+
+    async function restartScanner(){
+      try{
+        if (!html5QrCode) return;
+        if (html5QrCode.isScanning){
+          await html5QrCode.stop();
+        }
+        scannerStarted = false;
+        
+        if (cooldownTimer) clearTimeout(cooldownTimer);
+        exitCooldown();
+        
+        await new Promise(r => setTimeout(r, 150));
+        await startScanner();
+      } catch(e){
+        log("Restart scanner failed:", e);
+      }
+    }
+
+    async function hardResetScanner(){
+      try{
+        if (html5QrCode){
+          if (html5QrCode.isScanning){
+            await html5QrCode.stop();
+          }
+          html5QrCode.clear();
+        }
+      } catch(e){
+        console.warn("Scanner stop failed", e);
+      }
+
+      html5QrCode = null;
+      scannerStarted = false;
+      scannerAttempt = 0;
+
+      lastScanned = null;
+      lastScanTime = 0;
+      
+      if (cooldownTimer) clearTimeout(cooldownTimer);
+      exitCooldown();
+
+      await new Promise(r => setTimeout(r, 150));
+      await startScanner();
+    }
+
+    window.addEventListener("orientationchange", () => setTimeout(restartScanner, 450));
+    document.addEventListener("visibilitychange", () => {
+      if (!document.hidden) setTimeout(restartScanner, 450);
+    });
+
+    function updateCount_(){
+      document.getElementById("sessionCount").innerText = "Qty: " + sessionHistory.length;
+    }
+
+    function ensureHistoryVisible_(){
+      const list = document.getElementById("historyList");
+      if (list.style.display !== "block") list.style.display = "block";
+    }
+
+    function addHistoryRowBottom_(ipadId){
+      const list = document.getElementById("historyList");
+      ensureHistoryVisible_();
+
+      const row = document.createElement("div");
+      row.className = "history-row";
+
+      const label = document.createElement("span");
+      label.className = "history-label";
+      label.textContent = ipadId;
+
+      const btn = document.createElement("button");
+      btn.className = "delete-btn";
+      btn.textContent = "DELETE";
+      btn.onclick = () => removeById_(ipadId);
+
+      row.appendChild(label);
+      row.appendChild(btn);
+
+      list.appendChild(row);
+      historyDom.set(ipadId, row);
+      updateCount_();
+    }
+
+    function removeById_(ipadId){
+      const idx = sessionHistory.indexOf(ipadId);
+      if (idx >= 0) sessionHistory.splice(idx, 1);
+
+      const el = historyDom.get(ipadId);
+      if (el && el.parentNode) el.parentNode.removeChild(el);
+      historyDom.delete(ipadId);
+
+      updateCount_();
+      if (sessionHistory.length === 0) {
+        document.getElementById("historyList").style.display = "none";
+        updateBanner(userId ? "READY. SCAN NEXT IPAD" : "STEP 1: SCAN USER ID", "status-waiting");
+      }
+    }
+
+    function clearHistoryDom_(){
+      historyDom.clear();
+      const list = document.getElementById("historyList");
+      list.innerHTML = "";
+    }
+
+    function onScanSuccess(decodedText){
+      const now = Date.now();
+      const clean = (decodedText || "").toString().trim().toUpperCase();
+      if (!clean) return;
+
+      if (isInCooldown) {
+        log("Scan blocked - in cooldown period");
+        return;
+      }
+
+      if (clean === lastScanned && (now - lastScanTime) < DUPLICATE_WINDOW){
+        updateBanner("MOVE TO NEXT QR CODE", "status-warning");
+        playError();
+        vibrate(60);
+        return;
+      }
+
+      lastScanned = clean;
+      lastScanTime = now;
+
+      const userPattern = /^[ST]\d{3,}$/i;
+      const ipadPattern = /^IPAD-\d{3,}$/i;
+
+      if (!userId){
+        if (userPattern.test(clean)){
+          if (knownUsersSet.size > 0 && !knownUsersSet.has(clean)){
+            updateBanner("USER NOT IN ROSTER", "status-error");
+            playError();
+            vibrate(90);
+            return;
+          }
+
+          userId = clean;
+          document.getElementById("userPanel").style.display = "flex";
+          document.getElementById("currentUserId").innerText = userId;
+          updateBanner("USER OK. NOW SCAN IPADS", "status-success");
+          playSuccess(); // Enhanced audio
+          vibrate(25);
+          
+          enterCooldown();
+        } else {
+          updateBanner("INVALID USER QR (S001 OR T001)", "status-error");
+          playError();
+          vibrate(80);
+        }
+        return;
+      }
+
+      if (ipadPattern.test(clean)){
+        if (knownIpadsSet.size > 0 && !knownIpadsSet.has(clean)){
+          updateBanner("UNKNOWN IPAD ID. DO NOT USE", "status-error");
+          playError();
+          vibrate(100);
+          return;
+        }
+
+        if (mode === "borrow" && unavailableIpads.includes(clean)){
+          updateBanner("UNAVAILABLE (BORROWED OR ADMIN BLOCKED)", "status-error");
+          playError();
+          vibrate(90);
+          return;
+        }
+
+        if (sessionHistory.includes(clean)){
+          updateBanner("ALREADY IN THIS SESSION", "status-warning");
+          playError();
+          vibrate(60);
+          return;
+        }
+
+        sessionHistory.push(clean);
+        addHistoryRowBottom_(clean);
+
+        updateBanner("✓ " + clean + " - SCAN NEXT", "status-success");
+        playSuccess(); // Enhanced audio
+        vibrate(20);
+        
+        enterCooldown();
+        return;
+      }
+
+      updateBanner("INVALID QR CODE", "status-error");
+      playError();
+      vibrate(80);
+    }
+
+    async function clearAll(){
+      if (sessionHistory.length === 0 && !userId) return;
+
+      if (confirm("Clear and reset for next user?")){
+        resetAll();
+        await hardResetScanner();
+      }
+    }
+
+    function toggleHistory(){
+      const l = document.getElementById("historyList");
+      if (sessionHistory.length === 0) return;
+      l.style.display = (l.style.display === "none" || l.style.display === "") ? "block" : "none";
+    }
+
+    function resetAll(){
+      userId = null;
+      sessionHistory = [];
+      isProcessing = false;
+      document.getElementById("finishBtn").disabled = false;
+      document.getElementById("userPanel").style.display = "none";
+      document.getElementById("historyList").style.display = "none";
+      clearHistoryDom_();
+      updateCount_();
+      updateBanner("STEP 1: SCAN USER ID", "status-waiting");
+      
+      if (cooldownTimer) clearTimeout(cooldownTimer);
+      exitCooldown();
+    }
+
+    function setMode(m){
+      if (isProcessing) {
+        updateBanner("SAVING IN PROGRESS", "status-warning");
+        return;
+      }
+      mode = m;
+      document.getElementById("btnBorrow").classList.toggle("active", m === "borrow");
+      document.getElementById("btnReturn").classList.toggle("active", m === "return");
+      resetAll();
+      syncSystemCache();
+    }
+
+    async function finishSession(){
+      if (!userId || sessionHistory.length === 0 || isProcessing) return;
+
+      isProcessing = true;
+      document.getElementById("finishBtn").disabled = true;
+      updateBanner("SAVING...", "status-warning");
+
+      const payload = {
+        action: mode,
+        userId: userId,
+        ipadId: sessionHistory,
+        requestId: makeRequestId()
+      };
+
+      const maxRetries = 3;
+
+      for (let attempt = 1; attempt <= maxRetries; attempt++){
+        try{
+          const controller = new AbortController();
+          const t = setTimeout(() => controller.abort(), 15000);
+
+          const resp = await fetch(SCRIPT_URL, {
+            method: "POST",
+            headers: { "Content-Type": "text/plain;charset=utf-8" },
+            body: JSON.stringify(payload),
+            signal: controller.signal
+          });
+
+          clearTimeout(t);
+
+          let result = null;
+          try{ result = await resp.json(); } catch(e){}
+
+          if (result && result.success){
+            updateBanner("SAVED. NEXT USER", "status-success");
+            playComplete(); // Enhanced audio for completion
+            vibrate(40);
+
+            await syncSystemCache();
+
+            setTimeout(resetAll, 700);
+            return;
+          }
+
+          if (result && (result.error || result.message) && (!result.results || result.results.length === 0)){
+            const msg = (result.message || result.error || "SAVE FAILED").toString().toUpperCase();
+            updateBanner(msg, "status-error");
+            playError();
+            vibrate(90);
+            isProcessing = false;
+            document.getElementById("finishBtn").disabled = false;
+            return;
+          }
+
+          if (result && Array.isArray(result.results)){
+            const failed = result.results.filter(r => !r.success).map(r => r.ipadId).filter(Boolean);
+
+            if (failed.length > 0){
+              sessionHistory = failed;
+              clearHistoryDom_();
+              for (const id of sessionHistory) addHistoryRowBottom_(id);
+
+              isProcessing = false;
+              document.getElementById("finishBtn").disabled = false;
+              updateBanner("SOME FAILED. REVIEW AND RETRY", "status-warning");
+              playError();
+              vibrate(80);
+              await syncSystemCache();
+              return;
+            }
+
+            throw new Error("Save failed");
+          }
+
+          const errMsg = (result && (result.error || result.message)) ? (result.error || result.message) : ("HTTP " + resp.status);
+          throw new Error(errMsg);
+
+        } catch(err){
+          log("Save attempt failed:", attempt, err);
+
+          if (attempt < maxRetries){
+            updateBanner("RETRYING " + attempt + " OF " + maxRetries, "status-warning");
+            await new Promise(r => setTimeout(r, 700 * attempt));
+          } else {
+            playError();
+            vibrate(90);
+            updateBanner("SAVE FAILED. TAP TO RETRY", "status-error");
+
+            isProcessing = false;
+            document.getElementById("finishBtn").disabled = false;
+
+            document.getElementById("statusBanner").onclick = () => {
+              document.getElementById("statusBanner").onclick = null;
+              finishSession();
+            };
+          }
+        }
+      }
+    }
+  </script>
+</body>
+</html>
