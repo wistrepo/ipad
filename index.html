@@ -867,42 +867,69 @@
       lastScanned = clean;
       lastScanTime = now;
 
-      const userPattern = /^[ST]\d{3,}$/i;
-      const ipadPattern = /^IPAD-\d{3,}$/i;
+      // Legacy patterns for backward compatibility (S001, T001, iPad-001 format)
+      const legacyUserPattern = /^[ST]\d{3,}$/i;
+      const legacyIpadPattern = /^IPAD-\d{3,}$/i;
 
+      // STEP 1: Scan User ID
       if (!userId){
-        if (userPattern.test(clean)){
-          if (knownUsersSet.size > 0 && !knownUsersSet.has(clean)){
+        let isValidUser = false;
+        
+        // Check if it's in the known users list (if available)
+        if (knownUsersSet.size > 0) {
+          if (knownUsersSet.has(clean)) {
+            isValidUser = true;
+          } else {
+            // Not in roster - reject
             updateBanner("USER NOT IN ROSTER", "status-error");
             playError();
             vibrate(90);
+            log("User ID not in roster:", clean);
             return;
           }
+        } else {
+          // No roster available - accept any non-empty ID (offline mode)
+          // This allows custom IDs like "Student 001", "TEACHER_JOHN", etc.
+          isValidUser = true;
+          log("Offline mode: Accepting user ID without validation:", clean);
+        }
 
+        if (isValidUser) {
           userId = clean;
           document.getElementById("userPanel").style.display = "flex";
           document.getElementById("currentUserId").innerText = userId;
           updateBanner("USER OK. NOW SCAN IPADS", "status-success");
-          playSuccess(); // Enhanced audio
+          playSuccess();
           vibrate(25);
-          
           enterCooldown();
-        } else {
-          updateBanner("INVALID USER QR (S001 OR T001)", "status-error");
-          playError();
-          vibrate(80);
         }
         return;
       }
 
-      if (ipadPattern.test(clean)){
-        if (knownIpadsSet.size > 0 && !knownIpadsSet.has(clean)){
-          updateBanner("UNKNOWN IPAD ID. DO NOT USE", "status-error");
+      // STEP 2: Scan iPad/Asset ID
+      let isValidAsset = false;
+      
+      // Check if it's in the known iPads list (if available)
+      if (knownIpadsSet.size > 0) {
+        if (knownIpadsSet.has(clean)) {
+          isValidAsset = true;
+        } else {
+          // Not in inventory - reject
+          updateBanner("UNKNOWN ASSET ID. NOT IN INVENTORY", "status-error");
           playError();
           vibrate(100);
+          log("Asset ID not in inventory:", clean);
           return;
         }
+      } else {
+        // No inventory available - accept any non-empty ID (offline mode)
+        // This allows custom IDs like "Device: iPad Pro", "Asset #123", etc.
+        isValidAsset = true;
+        log("Offline mode: Accepting asset ID without validation:", clean);
+      }
 
+      if (isValidAsset) {
+        // Check availability (only in borrow mode)
         if (mode === "borrow" && unavailableIpads.includes(clean)){
           updateBanner("UNAVAILABLE (BORROWED OR ADMIN BLOCKED)", "status-error");
           playError();
@@ -910,6 +937,7 @@
           return;
         }
 
+        // Check for duplicates in current session
         if (sessionHistory.includes(clean)){
           updateBanner("ALREADY IN THIS SESSION", "status-warning");
           playError();
@@ -917,17 +945,19 @@
           return;
         }
 
+        // Add to session
         sessionHistory.push(clean);
         addHistoryRowBottom_(clean);
 
         updateBanner("✓ " + clean + " - SCAN NEXT", "status-success");
-        playSuccess(); // Enhanced audio
+        playSuccess();
         vibrate(20);
         
         enterCooldown();
         return;
       }
 
+      // Should never reach here, but just in case
       updateBanner("INVALID QR CODE", "status-error");
       playError();
       vibrate(80);
