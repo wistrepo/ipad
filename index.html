@@ -581,8 +581,142 @@
     let cooldownTimer = null;
     let codeReader = null;
 
-    // ===== MULTI-SENSORY FEEDBACK SYSTEM =====
+    // ===== MULTI-SENSORY FEEDBACK SYSTEM (COMPLETE WITH AUDIO) =====
     
+    // Audio Context and Buffers
+    let audioCtx = null;
+    let audioReady = false;
+    let audioBuffers = {
+      success: null,
+      error: null,
+      complete: null
+    };
+
+    /**
+     * Initialize enhanced audio system with polyphonic synthesis
+     */
+    async function initEnhancedAudio() {
+      if (audioReady) return;
+      
+      try {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        
+        // Generate audio buffers
+        audioBuffers.success = generateSuccessChime(audioCtx);
+        audioBuffers.error = generateErrorBuzz(audioCtx);
+        audioBuffers.complete = generateCompleteTriad(audioCtx);
+        
+        // iOS requires user interaction to start AudioContext
+        if (audioCtx.state === 'suspended') {
+          await audioCtx.resume();
+        }
+        
+        audioReady = true;
+        log('✓ Enhanced audio system initialized');
+      } catch (err) {
+        console.error('Audio initialization failed:', err);
+      }
+    }
+
+    /**
+     * Generate success chime (A5 note - 880Hz)
+     */
+    function generateSuccessChime(ctx) {
+      const sampleRate = ctx.sampleRate;
+      const duration = 0.15; // 150ms - quick and pleasant
+      const buffer = ctx.createBuffer(1, sampleRate * duration, sampleRate);
+      const data = buffer.getChannelData(0);
+      
+      const freq = 880; // A5 - bright, pleasant tone
+      for (let i = 0; i < buffer.length; i++) {
+        const t = i / sampleRate;
+        const envelope = Math.exp(-t * 15); // Fast decay
+        const wave = Math.sin(2 * Math.PI * freq * t);
+        data[i] = wave * envelope * 0.15; // Gentle volume
+      }
+      return buffer;
+    }
+
+    /**
+     * Generate error buzz (descending tone 350Hz → 230Hz)
+     */
+    function generateErrorBuzz(ctx) {
+      const sampleRate = ctx.sampleRate;
+      const duration = 0.2; // 200ms
+      const buffer = ctx.createBuffer(1, sampleRate * duration, sampleRate);
+      const data = buffer.getChannelData(0);
+      
+      for (let i = 0; i < buffer.length; i++) {
+        const t = i / sampleRate;
+        const progress = t / duration;
+        const freq = 350 - (progress * 120); // Descend from 350Hz to 230Hz
+        const envelope = Math.exp(-t * 8);
+        const wave = Math.sin(2 * Math.PI * freq * t);
+        data[i] = wave * envelope * 0.12;
+      }
+      return buffer;
+    }
+
+    /**
+     * Generate completion triad (C-E-G major chord)
+     */
+    function generateCompleteTriad(ctx) {
+      const sampleRate = ctx.sampleRate;
+      const duration = 0.25; // 250ms
+      const buffer = ctx.createBuffer(1, sampleRate * duration, sampleRate);
+      const data = buffer.getChannelData(0);
+      
+      const freqs = [523.25, 659.25, 783.99]; // C-E-G major triad
+      
+      for (let i = 0; i < buffer.length; i++) {
+        const t = i / sampleRate;
+        const envelope = Math.exp(-t * 6);
+        let sample = 0;
+        
+        for (const freq of freqs) {
+          sample += Math.sin(2 * Math.PI * freq * t) * 0.05; // Mix three notes
+        }
+        
+        data[i] = sample * envelope;
+      }
+      return buffer;
+    }
+
+    /**
+     * Play audio buffer with iOS suspend/resume handling
+     */
+    function playAudioBuffer(buffer) {
+      if (!audioReady || !buffer || !audioCtx) {
+        return;
+      }
+      
+      try {
+        // CRITICAL FIX: iOS/Safari suspends AudioContext after inactivity or mode changes
+        // We must check and resume before playing
+        if (audioCtx.state === "suspended") {
+          console.log("⚠️ AudioContext suspended, resuming before playback...");
+          audioCtx.resume().then(() => {
+            const source = audioCtx.createBufferSource();
+            source.buffer = buffer;
+            source.connect(audioCtx.destination);
+            source.start(0);
+            console.log("✓ Audio played successfully after context resume");
+          }).catch(err => {
+            console.error("❌ Failed to resume AudioContext:", err);
+          });
+        } else {
+          // Context is running, play immediately
+          const source = audioCtx.createBufferSource();
+          source.buffer = buffer;
+          source.connect(audioCtx.destination);
+          source.start(0);
+          console.log("✓ Audio played (context state:", audioCtx.state + ")");
+        }
+      } catch (e) {
+        console.error("❌ Audio playback failed:", e);
+      }
+    }
+
     /**
      * Haptic feedback with pattern-based vibration
      */
@@ -629,13 +763,30 @@
     }
 
     /**
-     * Universal multi-channel feedback
+     * Universal multi-channel feedback (COMPLETE VERSION)
+     * Provides haptic, visual, AND audio feedback
      */
     function triggerFeedback(type) {
+      // Channel 1: Haptic
       triggerHaptic(type);
+      
+      // Channel 2: Visual
       triggerScreenFlash(type);
       triggerOverlayFeedback(type);
-      console.log(`🎯 Multi-sensory feedback: ${type}`);
+      
+      // Channel 3: Audio (respects Silent Mode automatically)
+      const audioMap = {
+        success: audioBuffers.success,
+        error: audioBuffers.error,
+        warning: audioBuffers.error,
+        complete: audioBuffers.complete
+      };
+      
+      if (audioMap[type]) {
+        playAudioBuffer(audioMap[type]);
+      }
+      
+      console.log(`🎯 Multi-sensory feedback: ${type} (haptic + visual + audio)`);
     }
 
     // ===== USER CONFIRMATION MODAL =====
@@ -783,6 +934,9 @@
     }
 
     async function userStart() {
+      // Initialize audio on user interaction (required for iOS)
+      await initEnhancedAudio();
+      
       triggerHaptic('success');
       document.getElementById("startOverlay").style.display = "none";
       updateBanner("STARTING CAMERA...", "status-waiting");
