@@ -2,10 +2,11 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>iPad Express Checkout</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>iPad Express Checkout v2.0</title>
 
-  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+  <!-- ZXing QR Code Library - Better iOS Compatibility -->
+  <script src="https://unpkg.com/@zxing/library@0.20.0/umd/index.min.js"></script>
 
   <style>
     :root{
@@ -32,6 +33,9 @@
       overflow:hidden;
       -webkit-user-select:none;
       -webkit-tap-highlight-color:transparent;
+      /* iOS safe area support */
+      padding-top:env(safe-area-inset-top);
+      padding-bottom:env(safe-area-inset-bottom);
     }
 
     .header{
@@ -83,13 +87,18 @@
       border-radius:14px;
       overflow:hidden;
       border:2px solid var(--gray);
-      position:relative;
+      object-fit:cover;
+      display:block;
+      /* iOS-specific viewport fix */
+      transform: translateZ(0);
+      -webkit-transform: translateZ(0);
     }
 
-    #reader video{
-      width:100% !important;
-      height:100% !important;
-      object-fit:cover !important;
+    /* Dynamic Island safe area */
+    @supports (-webkit-touch-callout: none) {
+      #reader {
+        height: calc(clamp(220px, 38vh, 360px) - env(safe-area-inset-bottom)) !important;
+      }
     }
 
     .scan-overlay{
@@ -105,7 +114,7 @@
       border-radius:14px;
       pointer-events:none;
       opacity:0.55;
-      transition:opacity 0.2s, border-color 0.2s;
+      transition:all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     }
 
     .scan-overlay.scanning{
@@ -118,9 +127,33 @@
       animation:none;
     }
 
+    .scan-overlay.feedback-success {
+      border-color: #10b981;
+      box-shadow: 0 0 40px rgba(16, 185, 129, 0.6);
+      animation: successPulse 0.5s ease-out;
+    }
+
+    .scan-overlay.feedback-error {
+      border-color: #ef4444;
+      box-shadow: 0 0 40px rgba(239, 68, 68, 0.6);
+      animation: errorShake 0.5s ease-out;
+    }
+
     @keyframes pulse{
       0%,100%{ opacity:0.55; }
       50%{ opacity:0.25; }
+    }
+
+    @keyframes successPulse {
+      0% { transform: translate(-50%, -50%) scale(1); }
+      50% { transform: translate(-50%, -50%) scale(1.05); }
+      100% { transform: translate(-50%, -50%) scale(1); }
+    }
+
+    @keyframes errorShake {
+      0%, 100% { transform: translate(-50%, -50%) translateX(0); }
+      25% { transform: translate(-50%, -50%) translateX(-10px); }
+      75% { transform: translate(-50%, -50%) translateX(10px); }
     }
 
     .scan-corner{
@@ -131,8 +164,13 @@
       transition:border-color 0.2s;
     }
     
-    .scan-overlay.cooldown .scan-corner{
+    .scan-overlay.cooldown .scan-corner,
+    .scan-overlay.feedback-error .scan-corner{
       border-color:var(--warning);
+    }
+
+    .scan-overlay.feedback-success .scan-corner{
+      border-color:#10b981;
     }
     
     .scan-corner.tl{ top:0; left:0; border-right:none; border-bottom:none; }
@@ -140,160 +178,344 @@
     .scan-corner.bl{ bottom:0; left:0; border-right:none; border-top:none; }
     .scan-corner.br{ bottom:0; right:0; border-left:none; border-top:none; }
 
+    /* ===== USER CONFIRMATION MODAL ===== */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(15, 23, 42, 0.95);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+      animation: fadeIn 0.2s ease-out;
+    }
+
+    .modal-content {
+      background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+      border: 3px solid #10b981;
+      border-radius: 24px;
+      padding: 40px;
+      text-align: center;
+      max-width: 90%;
+      width: 420px;
+      box-shadow: 0 25px 50px rgba(0, 0, 0, 0.5);
+    }
+
+    .checkmark-icon {
+      width: 80px;
+      height: 80px;
+      background: #10b981;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 48px;
+      color: white;
+      margin: 0 auto 20px;
+      animation: scaleIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+
+    .modal-content h2 {
+      margin: 0 0 16px;
+      font-size: 28px;
+      color: #fff;
+    }
+
+    .user-info {
+      font-size: 18px;
+      color: #cbd5e1;
+      margin-bottom: 24px;
+    }
+
+    .user-info strong {
+      display: block;
+      font-size: 24px;
+      color: #10b981;
+      margin-bottom: 8px;
+      font-family: monospace;
+    }
+
+    .next-step {
+      background: rgba(79, 70, 229, 0.2);
+      border: 2px dashed #4f46e5;
+      border-radius: 16px;
+      padding: 20px;
+      margin: 24px 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+    }
+
+    .arrow-icon {
+      font-size: 32px;
+      color: #4f46e5;
+      animation: bounce 1s infinite;
+    }
+
+    .next-step p {
+      margin: 0;
+      font-size: 18px;
+      color: #e2e8f0;
+      font-weight: 600;
+    }
+
+    .modal-close {
+      background: #10b981;
+      color: white;
+      border: none;
+      padding: 14px 32px;
+      border-radius: 12px;
+      font-size: 16px;
+      font-weight: 700;
+      cursor: pointer;
+      margin-top: 16px;
+      transition: background 0.2s;
+    }
+
+    .modal-close:hover {
+      background: #059669;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    @keyframes scaleIn {
+      from { transform: scale(0); }
+      to { transform: scale(1); }
+    }
+
+    @keyframes bounce {
+      0%, 100% { transform: translateX(0); }
+      50% { transform: translateX(8px); }
+    }
+
+    .fade-out {
+      animation: fadeOut 0.3s ease-in forwards;
+    }
+
+    @keyframes fadeOut {
+      to { opacity: 0; transform: scale(0.95); }
+    }
+
+    /* ===== SCREEN FLASH FEEDBACK ===== */
+    .screen-flash {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 99999;
+      animation: flashEffect 0.4s ease-out;
+      mix-blend-mode: screen;
+    }
+
+    .screen-flash-success {
+      background: radial-gradient(circle, rgba(16, 185, 129, 0.4) 0%, transparent 70%);
+    }
+
+    .screen-flash-error {
+      background: radial-gradient(circle, rgba(239, 68, 68, 0.5) 0%, transparent 70%);
+    }
+
+    .screen-flash-warning {
+      background: radial-gradient(circle, rgba(245, 158, 11, 0.4) 0%, transparent 70%);
+    }
+
+    .screen-flash-complete {
+      background: radial-gradient(circle, rgba(79, 70, 229, 0.5) 0%, transparent 70%);
+    }
+
+    @keyframes flashEffect {
+      0% { opacity: 0; transform: scale(0.8); }
+      50% { opacity: 1; transform: scale(1); }
+      100% { opacity: 0; transform: scale(1.1); }
+    }
+
+    /* Respect user's motion preferences */
+    @media (prefers-reduced-motion: reduce) {
+      .screen-flash, .checkmark-icon, .arrow-icon {
+        animation: none !important;
+      }
+      .scan-overlay {
+        animation: none !important;
+      }
+    }
+
     .start-overlay{
       position:absolute;
       inset:0 12px 0 12px;
-      top:0;
       display:flex;
       align-items:center;
       justify-content:center;
       background:rgba(15,23,42,0.65);
-      border-radius:14px;
-      z-index:5;
-      height:clamp(220px, 38vh, 360px);
-      pointer-events:auto;
+      backdrop-filter:blur(8px);
+      z-index:100;
     }
 
     .start-btn{
-      border:none;
-      border-radius:14px;
-      padding:14px 18px;
-      font-weight:900;
-      font-size:1rem;
+      background:linear-gradient(135deg, var(--primary) 0%, #6366f1 100%);
       color:#fff;
-      background:var(--primary);
+      font-size:1.2rem;
+      padding:20px 48px;
+      border:none;
+      border-radius:50px;
       cursor:pointer;
-      box-shadow:0 10px 25px rgba(0,0,0,0.35);
+      font-weight:800;
+      box-shadow:0 10px 30px rgba(79,70,229,0.4);
+      transition:0.3s;
     }
 
-    .start-btn:active{
-      opacity:0.85;
-      transform:scale(0.98);
-    }
-
-    .overlay{
-      padding:16px;
-      background:var(--panel);
-      border-radius:24px 24px 0 0;
-      box-shadow:0 -5px 20px rgba(0,0,0,0.5);
-      flex:1;
-      display:flex;
-      flex-direction:column;
-      overflow:hidden;
-      width:min(900px, 100%);
-      margin:0 auto;
-    }
-
-    #userPanel{
-      display:none;
-      justify-content:space-between;
-      gap:10px;
-      padding:12px;
-      background:#0f172a;
-      border-radius:10px;
-      margin-bottom:10px;
-      border-left:4px solid var(--primary);
-      flex-shrink:0;
-      align-items:center;
-    }
+    .start-btn:active{ transform:scale(0.95); }
 
     .status-banner{
-      text-align:center;
       padding:14px;
-      border-radius:10px;
+      text-align:center;
       font-weight:900;
-      margin-bottom:10px;
-      flex-shrink:0;
       font-size:0.95rem;
-      user-select:none;
+      letter-spacing:0.5px;
+      transition:0.2s;
     }
 
-    .status-waiting{ background:var(--gray); color:#cbd5e1; }
-    .status-success{ background:var(--success); color:#fff; border:2px solid #6ee7b7; }
+    .status-waiting{ background:#334155; color:#e2e8f0; }
+    .status-success{ background:var(--success); color:#fff; }
     .status-error{ background:var(--danger); color:#fff; }
-    .status-warning{ background:var(--warning); color:#fff; }
+    .status-warning{ background:var(--warning); color:#000; }
+
+    .user-panel{
+      display:none;
+      align-items:center;
+      justify-content:space-between;
+      background:var(--panel);
+      padding:10px 14px;
+      margin:8px 12px 0;
+      border-radius:10px;
+      border:2px solid var(--success);
+    }
+
+    .user-label{ 
+      font-size:0.85rem; 
+      color:#94a3b8; 
+      margin-bottom:4px;
+    }
+
+    #currentUserId{
+      font-size:1.15rem;
+      font-weight:900;
+      color:#fff;
+      font-family:monospace;
+    }
+
+    .clear-btn{
+      background:var(--danger);
+      color:#fff;
+      border:none;
+      padding:10px 18px;
+      border-radius:8px;
+      font-size:0.85rem;
+      font-weight:700;
+      cursor:pointer;
+    }
+
+    .history-section{
+      flex:1;
+      overflow-y:auto;
+      padding:8px 12px 12px;
+    }
+
+    .history-header{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      padding:10px 0;
+    }
+
+    .history-title{
+      font-size:0.9rem;
+      font-weight:900;
+      color:#94a3b8;
+      text-transform:uppercase;
+      letter-spacing:0.5px;
+    }
+
+    #sessionCount{
+      background:var(--primary);
+      color:#fff;
+      padding:6px 12px;
+      border-radius:8px;
+      font-size:0.85rem;
+      font-weight:900;
+    }
 
     #historyList{
-      flex:1;
-      overflow:auto;
-      background:#0f172a;
-      border-radius:12px;
-      margin-bottom:12px;
-      border:1px solid var(--gray);
       display:none;
     }
 
     .history-row{
       display:flex;
-      justify-content:space-between;
       align-items:center;
+      justify-content:space-between;
+      background:var(--panel);
       padding:12px;
-      border-bottom:1px solid #334155;
+      margin:6px 0;
+      border-radius:10px;
+      border:1px solid var(--gray);
     }
 
     .history-label{
-      font-weight:900;
-      letter-spacing:1px;
+      font-family:monospace;
+      font-weight:700;
       color:#e2e8f0;
-    }
-
-    .action-bar{
-      display:grid;
-      grid-template-columns:1fr 1fr 1fr;
-      gap:10px;
-      height:56px;
-      flex-shrink:0;
-    }
-
-    .btn-action{
-      border-radius:12px;
-      border:none;
-      background:var(--gray);
-      color:#fff;
       font-size:1rem;
-      font-weight:900;
-      cursor:pointer;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      transition:0.2s;
-      min-height:44px;
-    }
-
-    .btn-finish{ background:var(--primary); }
-    .btn-clear{ background:#475569; }
-
-    .btn-action:active{
-      opacity:0.7;
-      transform:scale(0.98);
-    }
-
-    .btn-finish:disabled{
-      opacity:0.5;
-      cursor:not-allowed;
     }
 
     .delete-btn{
-      background:rgba(239,68,68,0.2);
-      color:#ff8080;
-      border:1px solid var(--danger);
-      padding:8px 12px;
-      border-radius:10px;
-      font-weight:900;
-      font-size:0.8rem;
+      background:var(--danger);
+      color:#fff;
+      border:none;
+      padding:8px 14px;
+      border-radius:6px;
+      font-size:0.75rem;
+      font-weight:700;
       cursor:pointer;
     }
 
-    @media (max-width:480px){
-      .overlay{ padding:14px; }
-      .mode-btn{ font-size:0.95rem; padding:10px; }
-      .action-bar{ gap:8px; height:52px; }
-      .btn-action{ font-size:0.9rem; }
-      .scan-overlay{ border-width:2px; }
+    .footer{
+      flex-shrink:0;
+      padding:12px;
+      background:var(--panel);
+      border-top:1px solid var(--gray);
     }
+
+    .finish-btn{
+      width:100%;
+      background:linear-gradient(135deg, var(--success) 0%, #059669 100%);
+      color:#fff;
+      padding:18px;
+      border:none;
+      border-radius:12px;
+      font-size:1.1rem;
+      font-weight:900;
+      cursor:pointer;
+      box-shadow:0 8px 25px rgba(16,185,129,0.3);
+      transition:0.3s;
+    }
+
+    .finish-btn:disabled{
+      background:#475569;
+      cursor:not-allowed;
+      box-shadow:none;
+    }
+
+    .finish-btn:active:not(:disabled){ transform:scale(0.97); }
   </style>
 </head>
-
 <body>
   <div class="header">
     <div class="mode-toggle">
@@ -303,297 +525,175 @@
   </div>
 
   <div id="reader-container">
-    <div id="reader"></div>
-
+    <video id="reader" autoplay playsinline></video>
     <div class="scan-overlay scanning">
       <div class="scan-corner tl"></div>
       <div class="scan-corner tr"></div>
       <div class="scan-corner bl"></div>
       <div class="scan-corner br"></div>
     </div>
-
     <div id="startOverlay" class="start-overlay">
-      <button class="start-btn" onclick="userStart()">Tap to Start Scanning</button>
+      <button class="start-btn" onclick="userStart()">SCAN QR CODE</button>
     </div>
   </div>
 
-  <div class="overlay">
-    <div id="userPanel">
-      <div>User: <b id="currentUserId" style="color:var(--primary)">-</b></div>
+  <div class="status-banner status-waiting" id="statusBanner">READY TO START</div>
+
+  <div class="user-panel" id="userPanel">
+    <div>
+      <div class="user-label">Current User:</div>
+      <div id="currentUserId">—</div>
+    </div>
+    <button class="clear-btn" onclick="clearAll()">CLEAR</button>
+  </div>
+
+  <div class="history-section">
+    <div class="history-header">
+      <div class="history-title">Session Items</div>
       <div id="sessionCount">Qty: 0</div>
     </div>
-
-    <div id="statusBanner" class="status-banner status-waiting">TAP TO START</div>
-
     <div id="historyList"></div>
+  </div>
 
-    <div class="action-bar">
-      <button class="btn-action btn-clear" onclick="clearAll()">Clear All</button>
-      <button class="btn-action" onclick="toggleHistory()">Review</button>
-      <button id="finishBtn" class="btn-action btn-finish" onclick="finishSession()">Finish & Save</button>
-    </div>
+  <div class="footer">
+    <button id="finishBtn" class="finish-btn" onclick="finishSession()">FINISH & SAVE</button>
   </div>
 
   <script>
-    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbw6Xa-JfswiL3ZgvIutwgy-6Jk0u477wX1wnYd-6sHCYOPWfCZs96XMNTXzAfdTMChGIQ/exec";
-    const DEBUG_MODE = false;
+    // ===== CONFIG =====
+    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbz38EuFK97iTsGqQf-b3BI108nJbzN6xZtEc2tqyk5K93I1kX9UIKqFVRD3DuCFUn_I/exec"; // UPDATE THIS
+    const DEBUG_MODE = true;
+    const DUPLICATE_WINDOW = 2000;
+    const COOLDOWN_DURATION = 1500;
 
+    // ===== STATE =====
     let mode = "borrow";
     let userId = null;
     let sessionHistory = [];
-    let isProcessing = false;
-
+    let historyDom = new Map();
     let unavailableIpads = [];
-    let unavailableCacheTs = 0;
-
-    let knownIpadsSet = new Set();
     let knownUsersSet = new Set();
-    let inventoryCacheTs = 0;
-    let rosterCacheTs = 0;
-
+    let knownIpadsSet = new Set();
     let lastScanned = null;
     let lastScanTime = 0;
-
-    let html5QrCode = null;
-    let scannerStarted = false;
-
-    let audioCtx = null;
-
-    let historyDom = new Map();
-
-    // Cooldown state management
+    let isProcessing = false;
     let isInCooldown = false;
     let cooldownTimer = null;
-    const COOLDOWN_DURATION = 600;
-    const DUPLICATE_WINDOW = 2000;
+    let codeReader = null;
 
-    // ============================================================
-    // GLOBAL DEBUGGING FUNCTIONS (call from browser console)
-    // ============================================================
-    window.testAudio = function() {
-      console.log("═══ AUDIO TEST START ═══");
-      console.log("Current mode:", mode);
-      console.log("Audio ready:", audioReady);
-      console.log("Audio context state:", audioCtx ? audioCtx.state : "null");
-      console.log("\nPlaying success sound...");
-      playSuccess();
-      setTimeout(() => {
-        console.log("Playing error sound...");
-        playError();
-      }, 600);
-      setTimeout(() => {
-        console.log("Playing complete sound...");
-        playComplete();
-      }, 1200);
-      console.log("\n⚠️ Check above logs for any errors");
-      console.log("═══ AUDIO TEST END ═══");
-    };
-
-    window.checkAudioStatus = function() {
-      console.log("═══ AUDIO STATUS ═══");
-      console.log("Mode:", mode);
-      console.log("audioReady:", audioReady);
-      console.log("audioCtx exists:", !!audioCtx);
-      console.log("audioCtx.state:", audioCtx ? audioCtx.state : "null");
-      console.log("audioBuffers.success:", audioBuffers.success ? "✓ loaded" : "✗ null");
-      console.log("audioBuffers.error:", audioBuffers.error ? "✓ loaded" : "✗ null");
-      console.log("audioBuffers.complete:", audioBuffers.complete ? "✓ loaded" : "✗ null");
-      console.log("\n💡 Tip: Run testAudio() to test all sounds");
-      console.log("═════════════════════");
-    };
-
-    window.forceResumeAudio = function() {
-      if (audioCtx) {
-        console.log("Forcing AudioContext resume...");
-        audioCtx.resume().then(() => {
-          console.log("✓ AudioContext resumed. State:", audioCtx.state);
-          console.log("Try testAudio() now");
-        }).catch(err => {
-          console.error("❌ Failed to resume:", err);
-        });
-      } else {
-        console.error("❌ No AudioContext exists");
-      }
-    };
-    // ============================================================
-
-    // ============================================================
-    // TASK 2: ENHANCED AUDIO SYSTEM - Pre-loaded audio buffers
-    // ============================================================
-    let audioBuffers = {
-      success: null,
-      error: null,
-      complete: null
-    };
-    let audioReady = false;
-
-    async function initEnhancedAudio() {
-      try {
-        if (!audioCtx) {
-          audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        }
-        
-        if (audioCtx.state === "suspended") {
-          await audioCtx.resume();
-        }
-
-        // Generate compact, cute audio buffers
-        audioBuffers.success = generateSuccessChime(audioCtx);
-        audioBuffers.error = generateErrorBuzz(audioCtx);
-        audioBuffers.complete = generateCompleteTriad(audioCtx);
-        
-        audioReady = true;
-        log("Enhanced audio system initialized");
-      } catch (e) {
-        console.warn("Audio initialization failed:", e);
-      }
-    }
-
-    // Generate a pleasant "pop" chime for success
-    function generateSuccessChime(ctx) {
-      const sampleRate = ctx.sampleRate;
-      const duration = 0.15; // 150ms - very quick
-      const buffer = ctx.createBuffer(1, sampleRate * duration, sampleRate);
-      const data = buffer.getChannelData(0);
-      
-      const freq = 880; // A5 - bright, pleasant
-      for (let i = 0; i < buffer.length; i++) {
-        const t = i / sampleRate;
-        const envelope = Math.exp(-t * 15); // Fast decay
-        const wave = Math.sin(2 * Math.PI * freq * t);
-        data[i] = wave * envelope * 0.15; // Gentle volume
-      }
-      return buffer;
-    }
-
-    // Generate a gentle descending buzz for errors
-    function generateErrorBuzz(ctx) {
-      const sampleRate = ctx.sampleRate;
-      const duration = 0.2; // 200ms
-      const buffer = ctx.createBuffer(1, sampleRate * duration, sampleRate);
-      const data = buffer.getChannelData(0);
-      
-      for (let i = 0; i < buffer.length; i++) {
-        const t = i / sampleRate;
-        const progress = t / duration;
-        const freq = 350 - (progress * 120); // Descend from 350Hz to 230Hz
-        const envelope = Math.exp(-t * 8);
-        const wave = Math.sin(2 * Math.PI * freq * t);
-        data[i] = wave * envelope * 0.12;
-      }
-      return buffer;
-    }
-
-    // Generate a triumphant three-note chord for completion
-    function generateCompleteTriad(ctx) {
-      const sampleRate = ctx.sampleRate;
-      const duration = 0.25; // 250ms
-      const buffer = ctx.createBuffer(1, sampleRate * duration, sampleRate);
-      const data = buffer.getChannelData(0);
-      
-      const freqs = [523.25, 659.25, 783.99]; // C-E-G major triad
-      
-      for (let i = 0; i < buffer.length; i++) {
-        const t = i / sampleRate;
-        const envelope = Math.exp(-t * 6);
-        let sample = 0;
-        
-        for (const freq of freqs) {
-          sample += Math.sin(2 * Math.PI * freq * t) * 0.05; // Mix three notes
-        }
-        
-        data[i] = sample * envelope;
-      }
-      return buffer;
-    }
-
-    function playAudioBuffer(buffer) {
-      if (!audioReady || !buffer || !audioCtx) {
-        console.warn("Audio playback blocked:", { 
-          audioReady, 
-          hasBuffer: !!buffer, 
-          hasCtx: !!audioCtx,
-          contextState: audioCtx ? audioCtx.state : 'no context'
-        });
+    // ===== MULTI-SENSORY FEEDBACK SYSTEM =====
+    
+    /**
+     * Haptic feedback with pattern-based vibration
+     */
+    function triggerHaptic(type) {
+      if (!navigator.vibrate) {
+        console.warn('Vibration API not supported');
         return;
       }
       
+      const patterns = {
+        success: [25],
+        error: [50, 100, 50],
+        warning: [30, 50, 30],
+        complete: [50, 100, 50, 100, 100]
+      };
+      
       try {
-        // CRITICAL FIX: iOS/Safari suspends AudioContext after inactivity or mode changes
-        // We must check and resume before playing
-        if (audioCtx.state === "suspended") {
-          console.log("⚠️ AudioContext suspended, resuming before playback...");
-          audioCtx.resume().then(() => {
-            const source = audioCtx.createBufferSource();
-            source.buffer = buffer;
-            source.connect(audioCtx.destination);
-            source.start(0);
-            console.log("✓ Audio played successfully after context resume");
-          }).catch(err => {
-            console.error("❌ Failed to resume AudioContext:", err);
-          });
-        } else {
-          // Context is running, play immediately
-          const source = audioCtx.createBufferSource();
-          source.buffer = buffer;
-          source.connect(audioCtx.destination);
-          source.start(0);
-          console.log("✓ Audio played (context state:", audioCtx.state + ")");
-        }
-      } catch (e) {
-        console.error("❌ Audio playback failed:", e);
+        navigator.vibrate(patterns[type] || [25]);
+        console.log(`✓ Haptic: ${type}`);
+      } catch (err) {
+        console.error('Vibration error:', err);
       }
     }
 
-    function playSuccess() {
-      console.log("🔊 Playing SUCCESS sound (mode:", mode + ")");
-      playAudioBuffer(audioBuffers.success);
+    /**
+     * Visual screen flash feedback
+     */
+    function triggerScreenFlash(type) {
+      const overlay = document.createElement('div');
+      overlay.className = `screen-flash screen-flash-${type}`;
+      document.body.appendChild(overlay);
+      setTimeout(() => overlay.remove(), 400);
     }
 
-    function playError() {
-      console.log("🔊 Playing ERROR sound (mode:", mode + ")");
-      playAudioBuffer(audioBuffers.error);
+    /**
+     * Scan overlay visual feedback
+     */
+    function triggerOverlayFeedback(type) {
+      const overlay = document.querySelector('.scan-overlay');
+      overlay.classList.add(`feedback-${type}`);
+      setTimeout(() => {
+        overlay.classList.remove(`feedback-${type}`);
+      }, 500);
     }
 
-    function playComplete() {
-      console.log("🔊 Playing COMPLETE sound (mode:", mode + ")");
-      playAudioBuffer(audioBuffers.complete);
+    /**
+     * Universal multi-channel feedback
+     */
+    function triggerFeedback(type) {
+      triggerHaptic(type);
+      triggerScreenFlash(type);
+      triggerOverlayFeedback(type);
+      console.log(`🎯 Multi-sensory feedback: ${type}`);
     }
-    // ============================================================
-    // END ENHANCED AUDIO SYSTEM
-    // ============================================================
 
-    // Device info
-    let deviceInfo = {
-      isIpad: /iPad/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1),
-      isIOS: /iPhone|iPad|iPod/.test(navigator.userAgent),
-      screenWidth: window.innerWidth,
-      screenHeight: window.innerHeight,
-      isPortrait: window.innerHeight > window.innerWidth
-    };
+    // ===== USER CONFIRMATION MODAL =====
+    
+    function showUserConfirmationModal(userId, userName) {
+      const existingModal = document.getElementById('userConfirmModal');
+      if (existingModal) existingModal.remove();
+      
+      const modal = document.createElement('div');
+      modal.id = 'userConfirmModal';
+      modal.innerHTML = `
+        <div class="modal-overlay">
+          <div class="modal-content">
+            <div class="checkmark-icon">✓</div>
+            <h2>User Verified</h2>
+            <div class="user-info">
+              <strong>${userId}</strong>
+              ${userName ? userName : ''}
+            </div>
+            <div class="next-step">
+              <div class="arrow-icon">→</div>
+              <p>Now scan iPad asset tags</p>
+            </div>
+            <button class="modal-close" onclick="dismissModal()">Continue</button>
+          </div>
+        </div>
+      `;
+      
+      document.body.appendChild(modal);
+      
+      // Auto-dismiss after 2.5 seconds
+      setTimeout(() => dismissModal(), 2500);
+    }
 
-    let scannerAttempt = 0;
-    const MAX_SCANNER_ATTEMPTS = 3;
+    function dismissModal() {
+      const modal = document.getElementById('userConfirmModal');
+      if (modal) {
+        modal.classList.add('fade-out');
+        setTimeout(() => modal.remove(), 300);
+      }
+    }
 
-    function log(...args){ if (DEBUG_MODE) console.log(...args); }
+    // ===== ZXING QR SCANNER =====
+    
+    function log(...args) {
+      if (DEBUG_MODE) console.log(...args);
+    }
 
-    function setVhUnit(){
+    function setVhUnit() {
       const vh = window.innerHeight * 0.01;
       document.documentElement.style.setProperty("--vh", `${vh}px`);
-      
-      deviceInfo.isPortrait = window.innerHeight > window.innerWidth;
-      deviceInfo.screenWidth = window.innerWidth;
-      deviceInfo.screenHeight = window.innerHeight;
     }
+    
     window.addEventListener("resize", setVhUnit);
     window.addEventListener("orientationchange", () => setTimeout(setVhUnit, 250));
     setVhUnit();
 
-    function vibrate(ms){
-      try{ if (navigator.vibrate) navigator.vibrate(ms); } catch(e){}
-    }
-
-    function updateBanner(text, cls){
+    function updateBanner(text, cls) {
       const b = document.getElementById("statusBanner");
       b.innerText = text;
       b.className = "status-banner " + cls;
@@ -601,47 +701,98 @@
       log("Banner:", text);
     }
 
-    function enterCooldown(){
+    function enterCooldown() {
       isInCooldown = true;
       const overlay = document.querySelector('.scan-overlay');
       overlay.classList.remove('scanning');
       overlay.classList.add('cooldown');
       
-      log('Entered cooldown mode');
+      log('Cooldown started');
       
       cooldownTimer = setTimeout(() => {
         exitCooldown();
       }, COOLDOWN_DURATION);
     }
 
-    function exitCooldown(){
+    function exitCooldown() {
       isInCooldown = false;
       const overlay = document.querySelector('.scan-overlay');
       overlay.classList.remove('cooldown');
       overlay.classList.add('scanning');
       
-      log('Exited cooldown - ready for next scan');
+      log('Cooldown ended');
     }
 
-    function makeRequestId(){
-      try{
-        if (crypto && crypto.randomUUID) return crypto.randomUUID();
-      } catch(e){}
-      return "RID_" + Date.now() + "_" + Math.random().toString(16).slice(2);
+    async function initZXingScanner() {
+      try {
+        if (codeReader) {
+          codeReader.reset();
+        }
+
+        codeReader = new ZXing.BrowserQRCodeReader();
+        
+        const videoInputDevices = await codeReader.listVideoInputDevices();
+        log('Available cameras:', videoInputDevices.length);
+        
+        if (videoInputDevices.length === 0) {
+          throw new Error('No camera found');
+        }
+        
+        // Prefer back camera
+        const selectedDeviceId = videoInputDevices.find(device => 
+          device.label.toLowerCase().includes('back') || 
+          device.label.toLowerCase().includes('environment')
+        )?.deviceId || videoInputDevices[0]?.deviceId;
+        
+        const constraints = {
+          video: {
+            deviceId: { exact: selectedDeviceId },
+            facingMode: { ideal: 'environment' },
+            width: { ideal: 1280 },
+            height: { ideal: 720 },
+            aspectRatio: { ideal: 16/9 }
+          }
+        };
+        
+        await codeReader.decodeFromConstraints(
+          constraints,
+          'reader',
+          (result, error) => {
+            if (result) {
+              onScanSuccess(result.text);
+            }
+          }
+        );
+        
+        log('ZXing scanner started successfully');
+        updateBanner("SYNCING STATUS...", "status-waiting");
+        await syncSystemCache();
+        
+      } catch (err) {
+        console.error('ZXing initialization failed:', err);
+        updateBanner("CAMERA ERROR. TAP TO RETRY", "status-error");
+        document.getElementById("startOverlay").style.display = "flex";
+      }
     }
 
-    async function userStart(){
-      await initEnhancedAudio(); // Initialize audio on user interaction
-      vibrate(20);
+    async function stopZXingScanner() {
+      if (codeReader) {
+        codeReader.reset();
+        log('ZXing scanner stopped');
+      }
+    }
+
+    async function userStart() {
+      triggerHaptic('success');
       document.getElementById("startOverlay").style.display = "none";
       updateBanner("STARTING CAMERA...", "status-waiting");
-      await startScanner();
+      await initZXingScanner();
     }
 
-    async function syncSystemCache(retryCount = 0){
+    async function syncSystemCache(retryCount = 0) {
       const maxRetries = 3;
-      try{
-        const resp = await fetch(SCRIPT_URL, { method:"GET", cache:"no-cache" });
+      try {
+        const resp = await fetch(SCRIPT_URL, { method: "GET", cache: "no-cache" });
         if (!resp.ok) throw new Error("HTTP " + resp.status);
         const data = await resp.json();
         if (!data.success) throw new Error(data.error || "Bad response");
@@ -649,238 +800,151 @@
         unavailableIpads = (data.borrowed || [])
           .map(x => (x || "").toString().trim().toUpperCase())
           .filter(Boolean);
-        unavailableCacheTs = Date.now();
 
-        const inv = (data.inventoryIds || [])
-          .map(x => (x || "").toString().trim().toUpperCase())
-          .filter(Boolean);
-        knownIpadsSet = new Set(inv);
-        inventoryCacheTs = Date.now();
+        knownUsersSet = new Set(
+          (data.userIds || [])
+            .map(x => (x || "").toString().trim().toUpperCase())
+            .filter(Boolean)
+        );
 
-        const users = (data.userIds || [])
-          .map(x => (x || "").toString().trim().toUpperCase())
-          .filter(Boolean);
-        knownUsersSet = new Set(users);
-        rosterCacheTs = Date.now();
+        knownIpadsSet = new Set(
+          (data.inventoryIds || [])
+            .map(x => (x || "").toString().trim().toUpperCase())
+            .filter(Boolean)
+        );
 
-        updateBanner("STEP 1: SCAN USER ID", "status-waiting");
-      } catch(e){
-        log("Sync failed:", e);
-        if (retryCount < maxRetries){
-          setTimeout(() => syncSystemCache(retryCount + 1), 800 * (retryCount + 1));
+        log("Cache synced:", {
+          unavailable: unavailableIpads.length,
+          users: knownUsersSet.size,
+          inventory: knownIpadsSet.size
+        });
+
+        updateBanner(userId ? "READY. SCAN NEXT IPAD" : "STEP 1: SCAN USER ID", "status-waiting");
+
+      } catch (err) {
+        log("Sync failed:", err);
+        if (retryCount < maxRetries) {
+          setTimeout(() => syncSystemCache(retryCount + 1), 1000 * (retryCount + 1));
         } else {
-          const invAge = Date.now() - inventoryCacheTs;
-          const userAge = Date.now() - rosterCacheTs;
-          if (invAge > 10 * 60 * 1000) knownIpadsSet = new Set();
-          if (userAge > 10 * 60 * 1000) knownUsersSet = new Set();
-          updateBanner("OFFLINE MODE: SCAN USER ID", "status-warning");
+          updateBanner("OFFLINE MODE", "status-warning");
         }
       }
     }
 
-    // ============================================================
-    // TASK 1: CAMERA ORIENTATION FIX
-    // ============================================================
-    function getScannerConfig(attempt = 0) {
-      const baseConfig = {
-        disableFlip: false,
-        formatsToSupport: [Html5QrcodeSupportedFormats.QR_CODE]
-      };
-
-      const isPortrait = window.innerHeight > window.innerWidth;
-      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-      
-      log(`Device orientation: ${isPortrait ? 'Portrait' : 'Landscape'}, Mobile: ${isMobile}`);
-      
-      if (attempt === 0) {
-        return {
-          ...baseConfig,
-          fps: 15,
-          // CRITICAL FIX: Dynamic qrbox that adapts to viewport dimensions
-          qrbox: function(viewfinderWidth, viewfinderHeight) {
-            // Use the actual rendered dimensions, not screen dimensions
-            const minDimension = Math.min(viewfinderWidth, viewfinderHeight);
-            const maxDimension = Math.max(viewfinderWidth, viewfinderHeight);
-            
-            // Adjust sizing based on aspect ratio to handle portrait mode
-            const aspectRatio = maxDimension / minDimension;
-            let sizeRatio = 0.7;
-            
-            // In extreme portrait (iPad vertical), use slightly smaller box
-            if (aspectRatio > 1.5) {
-              sizeRatio = 0.65;
-            }
-            
-            const qrboxSize = Math.floor(minDimension * sizeRatio);
-            
-            log(`QRBox calculated: ${qrboxSize}px from viewport ${viewfinderWidth}x${viewfinderHeight}`);
-            
-            return {
-              width: qrboxSize,
-              height: qrboxSize
-            };
-          },
-          // CRITICAL FIX: Let browser auto-select optimal video constraints
-          // No explicit width/height/aspectRatio that could conflict with orientation
-          aspectRatio: undefined,
-          videoConstraints: {
-            facingMode: { ideal: "environment" },
-            // Remove fixed dimensions - let browser adapt to orientation
-            advanced: [
-              { focusMode: "continuous" },
-              { zoom: { ideal: 1.0 } }
-            ]
-          }
-        };
-      } else if (attempt === 1) {
-        // Fallback with more conservative settings
-        return {
-          ...baseConfig,
-          fps: 12,
-          qrbox: function(viewfinderWidth, viewfinderHeight) {
-            const minEdge = Math.min(viewfinderWidth, viewfinderHeight);
-            return Math.floor(minEdge * 0.6);
-          },
-          videoConstraints: {
-            facingMode: "environment"
-          }
-        };
-      } else {
-        // Final fallback: fixed box size
-        return {
-          ...baseConfig,
-          fps: 10,
-          qrbox: 220
-        };
-      }
+    function makeRequestId() {
+      try {
+        if (crypto && crypto.randomUUID) return crypto.randomUUID();
+      } catch (e) {}
+      return "RID_" + Date.now() + "_" + Math.random().toString(16).slice(2);
     }
 
-    async function startScanner(){
-      try{
-        if (scannerStarted) return;
+    function onScanSuccess(decodedText) {
+      const now = Date.now();
+      const clean = (decodedText || "").toString().trim().toUpperCase();
+      if (!clean) return;
 
-        html5QrCode = new Html5Qrcode("reader", {
-          verbose: DEBUG_MODE,
-          // ORIENTATION FIX: Enable experimental features for better orientation handling
-          experimentalFeatures: {
-            useBarCodeDetectorIfSupported: true
+      if (isInCooldown) {
+        log("Scan blocked - in cooldown");
+        return;
+      }
+
+      if (clean === lastScanned && (now - lastScanTime) < DUPLICATE_WINDOW) {
+        updateBanner("DUPLICATE SCAN - MOVE TO NEXT", "status-warning");
+        triggerFeedback('warning');
+        return;
+      }
+
+      lastScanned = clean;
+      lastScanTime = now;
+
+      // STEP 1: User ID Scan
+      if (!userId) {
+        let isValidUser = false;
+        
+        if (knownUsersSet.size > 0) {
+          if (knownUsersSet.has(clean)) {
+            isValidUser = true;
+          } else {
+            updateBanner("USER NOT IN ROSTER", "status-error");
+            triggerFeedback('error');
+            log("User not in roster:", clean);
+            return;
           }
-        });
+        } else {
+          isValidUser = true;
+          log("Offline mode: Accepting user ID:", clean);
+        }
 
-        const config = getScannerConfig(scannerAttempt);
-        
-        log("Starting scanner (attempt " + (scannerAttempt + 1) + ")");
-        log("Orientation:", deviceInfo.isPortrait ? "Portrait" : "Landscape");
-        log("Config:", config);
-
-        const devices = await Html5Qrcode.getCameras();
-        if (!devices || devices.length === 0) throw new Error("No camera found");
-
-        log("Available cameras:", devices.length);
-
-        // ORIENTATION FIX: Use config.videoConstraints if available, else simple facingMode
-        const cameraConstraints = config.videoConstraints || { facingMode: "environment" };
-        
-        await html5QrCode.start(
-          cameraConstraints,
-          config,
-          onScanSuccess,
-          onScanError
-        );
-
-        scannerStarted = true;
-        updateBanner("SYNCING STATUS...", "status-waiting");
-        await syncSystemCache();
-      } catch(err){
-        console.error("Scanner start error (attempt " + (scannerAttempt + 1) + "):", err);
-        
-        if (scannerAttempt < MAX_SCANNER_ATTEMPTS - 1) {
-          scannerAttempt++;
-          scannerStarted = false;
-          html5QrCode = null;
+        if (isValidUser) {
+          userId = clean;
           
-          updateBanner("RETRYING CAMERA... (" + (scannerAttempt + 1) + "/" + MAX_SCANNER_ATTEMPTS + ")", "status-warning");
-          await new Promise(r => setTimeout(r, 500));
-          await startScanner();
+          // Show confirmation modal
+          showUserConfirmationModal(userId, "");
+          
+          document.getElementById("userPanel").style.display = "flex";
+          document.getElementById("currentUserId").innerText = userId;
+          updateBanner("USER OK. NOW SCAN IPADS", "status-success");
+          
+          triggerFeedback('success');
+          enterCooldown();
+        }
+        return;
+      }
+
+      // STEP 2: iPad/Asset ID Scan
+      let isValidAsset = false;
+      
+      if (knownIpadsSet.size > 0) {
+        if (knownIpadsSet.has(clean)) {
+          isValidAsset = true;
+        } else {
+          updateBanner("UNKNOWN ASSET - NOT IN INVENTORY", "status-error");
+          triggerFeedback('error');
+          log("Asset not in inventory:", clean);
+          return;
+        }
+      } else {
+        isValidAsset = true;
+        log("Offline mode: Accepting asset ID:", clean);
+      }
+
+      if (isValidAsset) {
+        if (mode === "borrow" && unavailableIpads.includes(clean)) {
+          updateBanner("UNAVAILABLE (BORROWED OR BLOCKED)", "status-error");
+          triggerFeedback('error');
           return;
         }
 
-        updateBanner("CAMERA ERROR. TAP TO RETRY", "status-error");
-        document.getElementById("startOverlay").style.display = "flex";
-        document.getElementById("statusBanner").onclick = () => {
-          document.getElementById("statusBanner").onclick = null;
-          scannerAttempt = 0;
-          userStart();
-        };
-      }
-    }
-    // ============================================================
-    // END CAMERA ORIENTATION FIX
-    // ============================================================
-
-    function onScanError(errorMessage) {
-      // Silently ignore - fires constantly when no QR detected
-    }
-
-    async function restartScanner(){
-      try{
-        if (!html5QrCode) return;
-        if (html5QrCode.isScanning){
-          await html5QrCode.stop();
+        if (sessionHistory.includes(clean)) {
+          updateBanner("ALREADY IN THIS SESSION", "status-warning");
+          triggerFeedback('warning');
+          return;
         }
-        scannerStarted = false;
-        
-        if (cooldownTimer) clearTimeout(cooldownTimer);
-        exitCooldown();
-        
-        await new Promise(r => setTimeout(r, 150));
-        await startScanner();
-      } catch(e){
-        log("Restart scanner failed:", e);
-      }
-    }
 
-    async function hardResetScanner(){
-      try{
-        if (html5QrCode){
-          if (html5QrCode.isScanning){
-            await html5QrCode.stop();
-          }
-          html5QrCode.clear();
-        }
-      } catch(e){
-        console.warn("Scanner stop failed", e);
+        sessionHistory.push(clean);
+        addHistoryRowBottom_(clean);
+
+        updateBanner("✓ " + clean + " - SCAN NEXT", "status-success");
+        triggerFeedback('success');
+        
+        enterCooldown();
+        return;
       }
 
-      html5QrCode = null;
-      scannerStarted = false;
-      scannerAttempt = 0;
-
-      lastScanned = null;
-      lastScanTime = 0;
-      
-      if (cooldownTimer) clearTimeout(cooldownTimer);
-      exitCooldown();
-
-      await new Promise(r => setTimeout(r, 150));
-      await startScanner();
+      updateBanner("INVALID QR CODE", "status-error");
+      triggerFeedback('error');
     }
 
-    window.addEventListener("orientationchange", () => setTimeout(restartScanner, 450));
-    document.addEventListener("visibilitychange", () => {
-      if (!document.hidden) setTimeout(restartScanner, 450);
-    });
-
-    function updateCount_(){
+    function updateCount_() {
       document.getElementById("sessionCount").innerText = "Qty: " + sessionHistory.length;
     }
 
-    function ensureHistoryVisible_(){
+    function ensureHistoryVisible_() {
       const list = document.getElementById("historyList");
       if (list.style.display !== "block") list.style.display = "block";
     }
 
-    function addHistoryRowBottom_(ipadId){
+    function addHistoryRowBottom_(ipadId) {
       const list = document.getElementById("historyList");
       ensureHistoryVisible_();
 
@@ -904,7 +968,7 @@
       updateCount_();
     }
 
-    function removeById_(ipadId){
+    function removeById_(ipadId) {
       const idx = sessionHistory.indexOf(ipadId);
       if (idx >= 0) sessionHistory.splice(idx, 1);
 
@@ -919,144 +983,23 @@
       }
     }
 
-    function clearHistoryDom_(){
+    function clearHistoryDom_() {
       historyDom.clear();
       const list = document.getElementById("historyList");
       list.innerHTML = "";
     }
 
-    function onScanSuccess(decodedText){
-      const now = Date.now();
-      const clean = (decodedText || "").toString().trim().toUpperCase();
-      if (!clean) return;
-
-      if (isInCooldown) {
-        log("Scan blocked - in cooldown period");
-        return;
-      }
-
-      if (clean === lastScanned && (now - lastScanTime) < DUPLICATE_WINDOW){
-        updateBanner("MOVE TO iPad QR CODE", "status-warning");
-        playError();
-        vibrate(60);
-        return;
-      }
-
-      lastScanned = clean;
-      lastScanTime = now;
-
-      // Legacy patterns for backward compatibility (S001, T001, iPad-001 format)
-      const legacyUserPattern = /^[ST]\d{3,}$/i;
-      const legacyIpadPattern = /^IPAD-\d{3,}$/i;
-
-      // STEP 1: Scan User ID
-      if (!userId){
-        let isValidUser = false;
-        
-        // Check if it's in the known users list (if available)
-        if (knownUsersSet.size > 0) {
-          if (knownUsersSet.has(clean)) {
-            isValidUser = true;
-          } else {
-            // Not in roster - reject
-            updateBanner("USER NOT IN ROSTER", "status-error");
-            playError();
-            vibrate(90);
-            log("User ID not in roster:", clean);
-            return;
-          }
-        } else {
-          // No roster available - accept any non-empty ID (offline mode)
-          // This allows custom IDs like "Student 001", "TEACHER_JOHN", etc.
-          isValidUser = true;
-          log("Offline mode: Accepting user ID without validation:", clean);
-        }
-
-        if (isValidUser) {
-          userId = clean;
-          document.getElementById("userPanel").style.display = "flex";
-          document.getElementById("currentUserId").innerText = userId;
-          updateBanner("USER OK. NOW SCAN IPADS", "status-success");
-          playSuccess();
-          vibrate(25);
-          enterCooldown();
-        }
-        return;
-      }
-
-      // STEP 2: Scan iPad/Asset ID
-      let isValidAsset = false;
-      
-      // Check if it's in the known iPads list (if available)
-      if (knownIpadsSet.size > 0) {
-        if (knownIpadsSet.has(clean)) {
-          isValidAsset = true;
-        } else {
-          // Not in inventory - reject
-          updateBanner("UNKNOWN ASSET ID. NOT IN INVENTORY", "status-error");
-          playError();
-          vibrate(100);
-          log("Asset ID not in inventory:", clean);
-          return;
-        }
-      } else {
-        // No inventory available - accept any non-empty ID (offline mode)
-        // This allows custom IDs like "Device: iPad Pro", "Asset #123", etc.
-        isValidAsset = true;
-        log("Offline mode: Accepting asset ID without validation:", clean);
-      }
-
-      if (isValidAsset) {
-        // Check availability (only in borrow mode)
-        if (mode === "borrow" && unavailableIpads.includes(clean)){
-          updateBanner("UNAVAILABLE (BORROWED OR ADMIN BLOCKED)", "status-error");
-          playError();
-          vibrate(90);
-          return;
-        }
-
-        // Check for duplicates in current session
-        if (sessionHistory.includes(clean)){
-          updateBanner("ALREADY IN THIS SESSION", "status-warning");
-          playError();
-          vibrate(60);
-          return;
-        }
-
-        // Add to session
-        sessionHistory.push(clean);
-        addHistoryRowBottom_(clean);
-
-        updateBanner("✓ " + clean + " - SCAN NEXT", "status-success");
-        playSuccess();
-        vibrate(20);
-        
-        enterCooldown();
-        return;
-      }
-
-      // Should never reach here, but just in case
-      updateBanner("INVALID QR CODE", "status-error");
-      playError();
-      vibrate(80);
-    }
-
-    async function clearAll(){
+    async function clearAll() {
       if (sessionHistory.length === 0 && !userId) return;
 
-      if (confirm("Clear and reset for next user?")){
+      if (confirm("Clear and reset for next user?")) {
         resetAll();
-        await hardResetScanner();
+        await stopZXingScanner();
+        await initZXingScanner();
       }
     }
 
-    function toggleHistory(){
-      const l = document.getElementById("historyList");
-      if (sessionHistory.length === 0) return;
-      l.style.display = (l.style.display === "none" || l.style.display === "") ? "block" : "none";
-    }
-
-    function resetAll(){
+    function resetAll() {
       userId = null;
       sessionHistory = [];
       isProcessing = false;
@@ -1071,33 +1014,21 @@
       exitCooldown();
     }
 
-    function setMode(m){
+    function setMode(m) {
       if (isProcessing) {
         updateBanner("SAVING IN PROGRESS", "status-warning");
         return;
       }
       
-      console.log("🔄 Mode changing from", mode, "to", m);
-      
       mode = m;
       document.getElementById("btnBorrow").classList.toggle("active", m === "borrow");
       document.getElementById("btnReturn").classList.toggle("active", m === "return");
-      
-      // Log audio state when mode changes
-      if (audioCtx) {
-        console.log("📱 AudioContext state after mode change:", audioCtx.state);
-        if (audioCtx.state === "suspended") {
-          console.warn("⚠️ AudioContext is SUSPENDED - audio will auto-resume on next playback");
-        }
-      } else {
-        console.warn("⚠️ No AudioContext - audio may not be initialized");
-      }
       
       resetAll();
       syncSystemCache();
     }
 
-    async function finishSession(){
+    async function finishSession() {
       if (!userId || sessionHistory.length === 0 || isProcessing) return;
 
       isProcessing = true;
@@ -1113,8 +1044,8 @@
 
       const maxRetries = 3;
 
-      for (let attempt = 1; attempt <= maxRetries; attempt++){
-        try{
+      for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
           const controller = new AbortController();
           const t = setTimeout(() => controller.abort(), 15000);
 
@@ -1128,12 +1059,11 @@
           clearTimeout(t);
 
           let result = null;
-          try{ result = await resp.json(); } catch(e){}
+          try { result = await resp.json(); } catch (e) {}
 
-          if (result && result.success){
+          if (result && result.success) {
             updateBanner("SAVED. NEXT USER", "status-success");
-            playComplete(); // Enhanced audio for completion
-            vibrate(40);
+            triggerFeedback('complete');
 
             await syncSystemCache();
 
@@ -1141,48 +1071,25 @@
             return;
           }
 
-          if (result && (result.error || result.message) && (!result.results || result.results.length === 0)){
+          if (result && (result.error || result.message)) {
             const msg = (result.message || result.error || "SAVE FAILED").toString().toUpperCase();
             updateBanner(msg, "status-error");
-            playError();
-            vibrate(90);
+            triggerFeedback('error');
             isProcessing = false;
             document.getElementById("finishBtn").disabled = false;
             return;
           }
 
-          if (result && Array.isArray(result.results)){
-            const failed = result.results.filter(r => !r.success).map(r => r.ipadId).filter(Boolean);
+          throw new Error("Save failed");
 
-            if (failed.length > 0){
-              sessionHistory = failed;
-              clearHistoryDom_();
-              for (const id of sessionHistory) addHistoryRowBottom_(id);
-
-              isProcessing = false;
-              document.getElementById("finishBtn").disabled = false;
-              updateBanner("SOME FAILED. REVIEW AND RETRY", "status-warning");
-              playError();
-              vibrate(80);
-              await syncSystemCache();
-              return;
-            }
-
-            throw new Error("Save failed");
-          }
-
-          const errMsg = (result && (result.error || result.message)) ? (result.error || result.message) : ("HTTP " + resp.status);
-          throw new Error(errMsg);
-
-        } catch(err){
+        } catch (err) {
           log("Save attempt failed:", attempt, err);
 
-          if (attempt < maxRetries){
+          if (attempt < maxRetries) {
             updateBanner("RETRYING " + attempt + " OF " + maxRetries, "status-warning");
             await new Promise(r => setTimeout(r, 700 * attempt));
           } else {
-            playError();
-            vibrate(90);
+            triggerFeedback('error');
             updateBanner("SAVE FAILED. TAP TO RETRY", "status-error");
 
             isProcessing = false;
