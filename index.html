@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-  <title>iPad Express Checkout v2.0</title>
+  <title>iPad Express Checkout - Phase II</title>
 
   <!-- ZXing QR Code Library - Better iOS Compatibility -->
   <script src="https://unpkg.com/@zxing/library@0.20.0/umd/index.min.js"></script>
@@ -18,6 +18,12 @@
       --gray:#334155;
       --warning:#f59e0b;
       --vh:1vh;
+      
+      /* PHASE II: Semantic Color Coding */
+      --actionable-blue:#3b82f6;
+      --active-zone:#1e3a8a;
+      --audit-grey:#64748b;
+      --historical-bg:#334155;
     }
 
     *{ box-sizing:border-box; }
@@ -33,7 +39,6 @@
       overflow:hidden;
       -webkit-user-select:none;
       -webkit-tap-highlight-color:transparent;
-      /* iOS safe area support */
       padding-top:env(safe-area-inset-top);
       padding-bottom:env(safe-area-inset-bottom);
     }
@@ -89,12 +94,10 @@
       border:2px solid var(--gray);
       object-fit:cover;
       display:block;
-      /* iOS-specific viewport fix */
       transform: translateZ(0);
       -webkit-transform: translateZ(0);
     }
 
-    /* Dynamic Island safe area */
     @supports (-webkit-touch-callout: none) {
       #reader {
         height: calc(clamp(220px, 38vh, 360px) - env(safe-area-inset-bottom)) !important;
@@ -137,6 +140,18 @@
       border-color: #ef4444;
       box-shadow: 0 0 40px rgba(239, 68, 68, 0.6);
       animation: errorShake 0.5s ease-out;
+    }
+
+    /* PHASE II: Visual Vibration Fallback */
+    .scan-overlay.visual-shake {
+      animation: visualShake 0.5s cubic-bezier(.36,.07,.19,.97) both;
+    }
+
+    @keyframes visualShake {
+      10%, 90% { transform: translate(-50%, -50%) translateX(-5px); }
+      20%, 80% { transform: translate(-50%, -50%) translateX(5px); }
+      30%, 50%, 70% { transform: translate(-50%, -50%) translateX(-3px); }
+      40%, 60% { transform: translate(-50%, -50%) translateX(3px); }
     }
 
     @keyframes pulse{
@@ -280,6 +295,153 @@
       background: #059669;
     }
 
+    /* PHASE II: Transaction Confirmation Modal */
+    .confirmation-modal .modal-content {
+      border-color: var(--actionable-blue);
+      max-width: 95%;
+      width: 500px;
+    }
+
+    .confirmation-modal .warning-icon {
+      width: 80px;
+      height: 80px;
+      background: var(--actionable-blue);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 48px;
+      color: white;
+      margin: 0 auto 20px;
+      animation: scaleIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+
+    .transaction-summary {
+      background: rgba(59, 130, 246, 0.1);
+      border: 2px solid var(--actionable-blue);
+      border-radius: 12px;
+      padding: 20px;
+      margin: 20px 0;
+      text-align: left;
+    }
+
+    .transaction-summary h3 {
+      margin: 0 0 16px;
+      font-size: 18px;
+      color: var(--actionable-blue);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .transaction-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .transaction-item:last-child {
+      border-bottom: none;
+    }
+
+    .transaction-label {
+      font-size: 14px;
+      color: #94a3b8;
+      font-weight: 600;
+    }
+
+    .transaction-value {
+      font-size: 16px;
+      color: #e2e8f0;
+      font-family: monospace;
+      font-weight: 700;
+    }
+
+    .asset-count {
+      background: var(--actionable-blue);
+      color: white;
+      padding: 6px 16px;
+      border-radius: 20px;
+      font-size: 18px;
+      font-weight: 900;
+    }
+
+    .modal-actions {
+      display: flex;
+      gap: 12px;
+      margin-top: 24px;
+    }
+
+    .modal-btn {
+      flex: 1;
+      padding: 16px;
+      border: none;
+      border-radius: 12px;
+      font-size: 16px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .modal-btn-cancel {
+      background: var(--gray);
+      color: white;
+    }
+
+    .modal-btn-cancel:hover {
+      background: #475569;
+    }
+
+    .modal-btn-confirm {
+      background: var(--actionable-blue);
+      color: white;
+    }
+
+    .modal-btn-confirm:hover {
+      background: #2563eb;
+    }
+
+    /* PHASE II: Error Modal */
+    .error-modal .modal-content {
+      border-color: var(--danger);
+    }
+
+    .error-modal .error-icon {
+      width: 80px;
+      height: 80px;
+      background: var(--danger);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 48px;
+      color: white;
+      margin: 0 auto 20px;
+      animation: scaleIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+
+    .error-details {
+      background: rgba(239, 68, 68, 0.1);
+      border: 2px solid var(--danger);
+      border-radius: 12px;
+      padding: 20px;
+      margin: 20px 0;
+      text-align: left;
+    }
+
+    .error-details code {
+      display: block;
+      background: rgba(0, 0, 0, 0.3);
+      padding: 12px;
+      border-radius: 8px;
+      font-family: monospace;
+      font-size: 14px;
+      color: #fca5a5;
+      margin-top: 12px;
+      word-break: break-all;
+    }
+
     @keyframes fadeIn {
       from { opacity: 0; }
       to { opacity: 1; }
@@ -338,12 +500,8 @@
       100% { opacity: 0; transform: scale(1.1); }
     }
 
-    /* Respect user's motion preferences */
     @media (prefers-reduced-motion: reduce) {
-      .screen-flash, .checkmark-icon, .arrow-icon {
-        animation: none !important;
-      }
-      .scan-overlay {
+      .screen-flash, .checkmark-icon, .arrow-icon, .scan-overlay {
         animation: none !important;
       }
     }
@@ -388,66 +546,108 @@
     .status-error{ background:var(--danger); color:#fff; }
     .status-warning{ background:var(--warning); color:#000; }
 
+    /* PHASE II: Active Zone with Card Elevation (Z-Axis Depth) */
     .user-panel{
       display:none;
       align-items:center;
       justify-content:space-between;
-      background:var(--panel);
-      padding:10px 14px;
-      margin:8px 12px 0;
-      border-radius:10px;
-      border:2px solid var(--success);
+      background: linear-gradient(135deg, var(--active-zone) 0%, #1e40af 100%);
+      padding:16px 18px;
+      margin:12px 12px 0;
+      border-radius:16px;
+      border:2px solid var(--actionable-blue);
+      box-shadow: 0 8px 24px rgba(59, 130, 246, 0.3),
+                  0 4px 8px rgba(0, 0, 0, 0.4);
+      position: relative;
+      z-index: 10;
+    }
+
+    .user-panel::before {
+      content: "";
+      position: absolute;
+      top: -2px;
+      left: -2px;
+      right: -2px;
+      bottom: -2px;
+      background: linear-gradient(135deg, var(--actionable-blue), #60a5fa);
+      border-radius: 16px;
+      z-index: -1;
+      opacity: 0.5;
+      filter: blur(8px);
     }
 
     .user-label{ 
-      font-size:0.85rem; 
-      color:#94a3b8; 
-      margin-bottom:4px;
+      font-size:0.75rem; 
+      color:#93c5fd; 
+      margin-bottom:6px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      font-weight: 700;
     }
 
     #currentUserId{
-      font-size:1.15rem;
+      font-size:1.3rem;
       font-weight:900;
       color:#fff;
       font-family:monospace;
+      text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
     }
 
     .clear-btn{
       background:var(--danger);
       color:#fff;
       border:none;
-      padding:10px 18px;
-      border-radius:8px;
+      padding:12px 20px;
+      border-radius:10px;
       font-size:0.85rem;
       font-weight:700;
       cursor:pointer;
+      box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4);
+      transition: all 0.2s;
     }
 
+    .clear-btn:active {
+      transform: scale(0.95);
+    }
+
+    /* PHASE II: Historical/Audit Zone with Flat Design */
     .history-section{
       flex:1;
       overflow-y:auto;
       padding:8px 12px 12px;
+      background: transparent;
     }
 
     .history-header{
       display:flex;
       align-items:center;
       justify-content:space-between;
-      padding:10px 0;
+      padding:12px 4px;
+      border-bottom: 2px solid var(--audit-grey);
+      margin-bottom: 12px;
     }
 
     .history-title{
-      font-size:0.9rem;
+      font-size:0.85rem;
       font-weight:900;
-      color:#94a3b8;
+      color:var(--audit-grey);
       text-transform:uppercase;
-      letter-spacing:0.5px;
+      letter-spacing:1px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .history-icon {
+      width: 20px;
+      height: 20px;
+      opacity: 0.6;
     }
 
     #sessionCount{
-      background:var(--primary);
+      background:var(--audit-grey);
       color:#fff;
-      padding:6px 12px;
+      padding:6px 14px;
       border-radius:8px;
       font-size:0.85rem;
       font-weight:900;
@@ -461,17 +661,23 @@
       display:flex;
       align-items:center;
       justify-content:space-between;
-      background:var(--panel);
-      padding:12px;
+      background:var(--historical-bg);
+      padding:12px 14px;
       margin:6px 0;
       border-radius:10px;
-      border:1px solid var(--gray);
+      border:1px solid rgba(100, 116, 139, 0.3);
+      box-shadow: none;
+      transition: background 0.2s;
+    }
+
+    .history-row:hover {
+      background: #3f4b5b;
     }
 
     .history-label{
       font-family:monospace;
-      font-weight:700;
-      color:#e2e8f0;
+      font-weight:600;
+      color:#cbd5e1;
       font-size:1rem;
     }
 
@@ -484,6 +690,11 @@
       font-size:0.75rem;
       font-weight:700;
       cursor:pointer;
+      transition: all 0.2s;
+    }
+
+    .delete-btn:active {
+      transform: scale(0.95);
     }
 
     .footer{
@@ -541,7 +752,7 @@
 
   <div class="user-panel" id="userPanel">
     <div>
-      <div class="user-label">Current User:</div>
+      <div class="user-label">🎯 Active User</div>
       <div id="currentUserId">—</div>
     </div>
     <button class="clear-btn" onclick="clearAll()">CLEAR</button>
@@ -549,14 +760,17 @@
 
   <div class="history-section">
     <div class="history-header">
-      <div class="history-title">Session Items</div>
+      <div class="history-title">
+        <span class="history-icon">📋</span>
+        Session Items
+      </div>
       <div id="sessionCount">Qty: 0</div>
     </div>
     <div id="historyList"></div>
   </div>
 
   <div class="footer">
-    <button id="finishBtn" class="finish-btn" onclick="finishSession()">FINISH & SAVE</button>
+    <button id="finishBtn" class="finish-btn" onclick="showConfirmationModal()">FINISH & SAVE</button>
   </div>
 
   <script>
@@ -581,9 +795,16 @@
     let cooldownTimer = null;
     let codeReader = null;
 
-    // ===== MULTI-SENSORY FEEDBACK SYSTEM (COMPLETE WITH AUDIO) =====
+    // PHASE II: Haptic Capability Detection
+    let hapticCapable = false;
+    let deviceInfo = {
+      isIOS: /iPhone|iPad|iPod/.test(navigator.userAgent),
+      isSafari: /^((?!chrome|android).)*safari/i.test(navigator.userAgent),
+      userAgent: navigator.userAgent
+    };
+
+    // ===== AUDIO SYSTEM =====
     
-    // Audio Context and Buffers
     let audioCtx = null;
     let audioReady = false;
     let audioBuffers = {
@@ -592,21 +813,16 @@
       complete: null
     };
 
-    /**
-     * Initialize enhanced audio system with polyphonic synthesis
-     */
     async function initEnhancedAudio() {
       if (audioReady) return;
       
       try {
         audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         
-        // Generate audio buffers
         audioBuffers.success = generateSuccessChime(audioCtx);
         audioBuffers.error = generateErrorBuzz(audioCtx);
         audioBuffers.complete = generateCompleteTriad(audioCtx);
         
-        // iOS requires user interaction to start AudioContext
         if (audioCtx.state === 'suspended') {
           await audioCtx.resume();
         }
@@ -618,38 +834,32 @@
       }
     }
 
-    /**
-     * Generate success chime (A5 note - 880Hz)
-     */
     function generateSuccessChime(ctx) {
       const sampleRate = ctx.sampleRate;
-      const duration = 0.15; // 150ms - quick and pleasant
+      const duration = 0.15;
       const buffer = ctx.createBuffer(1, sampleRate * duration, sampleRate);
       const data = buffer.getChannelData(0);
       
-      const freq = 880; // A5 - bright, pleasant tone
+      const freq = 880;
       for (let i = 0; i < buffer.length; i++) {
         const t = i / sampleRate;
-        const envelope = Math.exp(-t * 15); // Fast decay
+        const envelope = Math.exp(-t * 15);
         const wave = Math.sin(2 * Math.PI * freq * t);
-        data[i] = wave * envelope * 0.15; // Gentle volume
+        data[i] = wave * envelope * 0.15;
       }
       return buffer;
     }
 
-    /**
-     * Generate error buzz (descending tone 350Hz → 230Hz)
-     */
     function generateErrorBuzz(ctx) {
       const sampleRate = ctx.sampleRate;
-      const duration = 0.2; // 200ms
+      const duration = 0.2;
       const buffer = ctx.createBuffer(1, sampleRate * duration, sampleRate);
       const data = buffer.getChannelData(0);
       
       for (let i = 0; i < buffer.length; i++) {
         const t = i / sampleRate;
         const progress = t / duration;
-        const freq = 350 - (progress * 120); // Descend from 350Hz to 230Hz
+        const freq = 350 - (progress * 120);
         const envelope = Math.exp(-t * 8);
         const wave = Math.sin(2 * Math.PI * freq * t);
         data[i] = wave * envelope * 0.12;
@@ -657,16 +867,13 @@
       return buffer;
     }
 
-    /**
-     * Generate completion triad (C-E-G major chord)
-     */
     function generateCompleteTriad(ctx) {
       const sampleRate = ctx.sampleRate;
-      const duration = 0.25; // 250ms
+      const duration = 0.25;
       const buffer = ctx.createBuffer(1, sampleRate * duration, sampleRate);
       const data = buffer.getChannelData(0);
       
-      const freqs = [523.25, 659.25, 783.99]; // C-E-G major triad
+      const freqs = [523.25, 659.25, 783.99];
       
       for (let i = 0; i < buffer.length; i++) {
         const t = i / sampleRate;
@@ -674,7 +881,7 @@
         let sample = 0;
         
         for (const freq of freqs) {
-          sample += Math.sin(2 * Math.PI * freq * t) * 0.05; // Mix three notes
+          sample += Math.sin(2 * Math.PI * freq * t) * 0.05;
         }
         
         data[i] = sample * envelope;
@@ -682,50 +889,65 @@
       return buffer;
     }
 
-    /**
-     * Play audio buffer with iOS suspend/resume handling
-     */
     function playAudioBuffer(buffer) {
-      if (!audioReady || !buffer || !audioCtx) {
-        return;
-      }
+      if (!audioReady || !buffer || !audioCtx) return;
       
       try {
-        // CRITICAL FIX: iOS/Safari suspends AudioContext after inactivity or mode changes
-        // We must check and resume before playing
         if (audioCtx.state === "suspended") {
-          console.log("⚠️ AudioContext suspended, resuming before playback...");
           audioCtx.resume().then(() => {
             const source = audioCtx.createBufferSource();
             source.buffer = buffer;
             source.connect(audioCtx.destination);
             source.start(0);
-            console.log("✓ Audio played successfully after context resume");
           }).catch(err => {
-            console.error("❌ Failed to resume AudioContext:", err);
+            console.error("AudioContext resume failed:", err);
           });
         } else {
-          // Context is running, play immediately
           const source = audioCtx.createBufferSource();
           source.buffer = buffer;
           source.connect(audioCtx.destination);
           source.start(0);
-          console.log("✓ Audio played (context state:", audioCtx.state + ")");
         }
       } catch (e) {
-        console.error("❌ Audio playback failed:", e);
+        console.error("Audio playback failed:", e);
       }
     }
 
+    // ===== PHASE II: ENHANCED HAPTIC WITH GRACEFUL DEGRADATION =====
+    
     /**
-     * Haptic feedback with pattern-based vibration
+     * Initialize and test haptic capabilities
      */
-    function triggerHaptic(type) {
+    function initHapticCapabilities() {
       if (!navigator.vibrate) {
-        console.warn('Vibration API not supported');
+        log('⚠️ Vibration API not supported');
+        hapticCapable = false;
         return;
       }
-      
+
+      // PHASE II: User-Agent compatibility check
+      // Safari iOS has historically restricted Vibration API
+      if (deviceInfo.isIOS && !deviceInfo.isSafari) {
+        log('⚠️ iOS detected but not Safari - vibration may be restricted');
+      }
+
+      // Test vibration
+      try {
+        const testResult = navigator.vibrate(1);
+        hapticCapable = testResult;
+        log(`✓ Haptic capability: ${hapticCapable ? 'ENABLED' : 'DISABLED'}`);
+      } catch (err) {
+        log('⚠️ Vibration test failed:', err);
+        hapticCapable = false;
+      }
+
+      log('Device Info:', deviceInfo);
+    }
+
+    /**
+     * Trigger haptic with automatic fallback to visual vibration
+     */
+    function triggerHaptic(type) {
       const patterns = {
         success: [25],
         error: [50, 100, 50],
@@ -733,17 +955,38 @@
         complete: [50, 100, 50, 100, 100]
       };
       
-      try {
-        navigator.vibrate(patterns[type] || [25]);
-        console.log(`✓ Haptic: ${type}`);
-      } catch (err) {
-        console.error('Vibration error:', err);
+      if (hapticCapable) {
+        try {
+          const result = navigator.vibrate(patterns[type] || [25]);
+          if (result) {
+            log(`✓ Haptic: ${type}`);
+            return;
+          }
+        } catch (err) {
+          log('⚠️ Haptic failed, falling back to visual');
+        }
       }
+
+      // PHASE II: Graceful Degradation - Visual Vibration
+      triggerVisualVibration(type);
     }
 
     /**
-     * Visual screen flash feedback
+     * PHASE II: Visual Vibration Fallback
+     * Provides shake animation when hardware haptics unavailable
      */
+    function triggerVisualVibration(type) {
+      const overlay = document.querySelector('.scan-overlay');
+      
+      if (type === 'error' || type === 'warning') {
+        overlay.classList.add('visual-shake');
+        setTimeout(() => {
+          overlay.classList.remove('visual-shake');
+        }, 500);
+        log(`✓ Visual vibration (fallback): ${type}`);
+      }
+    }
+
     function triggerScreenFlash(type) {
       const overlay = document.createElement('div');
       overlay.className = `screen-flash screen-flash-${type}`;
@@ -751,9 +994,6 @@
       setTimeout(() => overlay.remove(), 400);
     }
 
-    /**
-     * Scan overlay visual feedback
-     */
     function triggerOverlayFeedback(type) {
       const overlay = document.querySelector('.scan-overlay');
       overlay.classList.add(`feedback-${type}`);
@@ -762,19 +1002,11 @@
       }, 500);
     }
 
-    /**
-     * Universal multi-channel feedback (COMPLETE VERSION)
-     * Provides haptic, visual, AND audio feedback
-     */
     function triggerFeedback(type) {
-      // Channel 1: Haptic
       triggerHaptic(type);
-      
-      // Channel 2: Visual
       triggerScreenFlash(type);
       triggerOverlayFeedback(type);
       
-      // Channel 3: Audio (respects Silent Mode automatically)
       const audioMap = {
         success: audioBuffers.success,
         error: audioBuffers.error,
@@ -786,10 +1018,143 @@
         playAudioBuffer(audioMap[type]);
       }
       
-      console.log(`🎯 Multi-sensory feedback: ${type} (haptic + visual + audio)`);
+      console.log(`🎯 Multi-sensory feedback: ${type}`);
     }
 
-    // ===== USER CONFIRMATION MODAL =====
+    // ===== PHASE II: TRANSACTION CONFIRMATION MODAL =====
+    
+    /**
+     * Show pre-submission confirmation gateway
+     */
+    function showConfirmationModal() {
+      if (!userId || sessionHistory.length === 0 || isProcessing) return;
+
+      const modal = document.createElement('div');
+      modal.id = 'confirmationModal';
+      modal.className = 'modal-overlay confirmation-modal';
+      
+      const actionLabel = mode === 'borrow' ? 'Checkout' : 'Return';
+      
+      modal.innerHTML = `
+        <div class="modal-content">
+          <div class="warning-icon">⚠️</div>
+          <h2>Confirm ${actionLabel}</h2>
+          
+          <div class="transaction-summary">
+            <h3>${actionLabel} Summary</h3>
+            
+            <div class="transaction-item">
+              <span class="transaction-label">User ID:</span>
+              <span class="transaction-value">${userId}</span>
+            </div>
+            
+            <div class="transaction-item">
+              <span class="transaction-label">Action:</span>
+              <span class="transaction-value">${mode.toUpperCase()}</span>
+            </div>
+            
+            <div class="transaction-item">
+              <span class="transaction-label">Asset Count:</span>
+              <span class="asset-count">${sessionHistory.length}</span>
+            </div>
+          </div>
+          
+          <p style="color: #94a3b8; font-size: 14px; margin: 16px 0;">
+            ${mode === 'borrow' 
+              ? 'You are about to check out these iPads. Ensure all IDs are correct.'
+              : 'You are about to return these iPads. This will remove them from the borrowed list.'}
+          </p>
+          
+          <div class="modal-actions">
+            <button class="modal-btn modal-btn-cancel" onclick="dismissConfirmationModal()">
+              Cancel
+            </button>
+            <button class="modal-btn modal-btn-confirm" onclick="confirmAndProceed()">
+              Confirm & Proceed
+            </button>
+          </div>
+        </div>
+      `;
+      
+      document.body.appendChild(modal);
+      triggerFeedback('warning');
+    }
+
+    function dismissConfirmationModal() {
+      const modal = document.getElementById('confirmationModal');
+      if (modal) {
+        modal.classList.add('fade-out');
+        setTimeout(() => modal.remove(), 300);
+      }
+    }
+
+    async function confirmAndProceed() {
+      dismissConfirmationModal();
+      await finishSession();
+    }
+
+    // ===== PHASE II: ERROR MODAL WITH SPECIFIC CODES =====
+    
+    /**
+     * Show detailed error modal with backend error codes
+     */
+    function showErrorModal(errorCode, errorMessage, details = {}) {
+      const modal = document.createElement('div');
+      modal.id = 'errorModal';
+      modal.className = 'modal-overlay error-modal';
+      
+      modal.innerHTML = `
+        <div class="modal-content">
+          <div class="error-icon">❌</div>
+          <h2>Transaction Failed</h2>
+          
+          <div class="error-details">
+            <p style="margin: 0 0 12px; color: #fca5a5; font-weight: 700;">
+              Error Code: ${errorCode}
+            </p>
+            <p style="margin: 0; color: #e2e8f0; font-size: 15px;">
+              ${errorMessage}
+            </p>
+            ${details.ipadId ? `<code>Asset ID: ${details.ipadId}</code>` : ''}
+            ${details.reason ? `<code>Reason: ${details.reason}</code>` : ''}
+          </div>
+          
+          <p style="color: #94a3b8; font-size: 13px; margin: 16px 0;">
+            ${getErrorGuidance(errorCode)}
+          </p>
+          
+          <button class="modal-close" onclick="dismissErrorModal()">
+            Close
+          </button>
+        </div>
+      `;
+      
+      document.body.appendChild(modal);
+      triggerFeedback('error');
+    }
+
+    function getErrorGuidance(errorCode) {
+      const guidance = {
+        'NOT_BORROWED': 'This iPad is not currently checked out. Please verify the asset ID and try again.',
+        'ASSET_NOT_FOUND': 'This iPad ID does not exist in the inventory. Contact an administrator.',
+        'USER_NOT_FOUND': 'User ID not found in roster. Please scan a valid user ID.',
+        'ALREADY_BORROWED': 'This iPad is already checked out to another user.',
+        'NETWORK_ERROR': 'Unable to connect to the server. Check your internet connection and retry.',
+        'UNKNOWN': 'An unexpected error occurred. Please contact support if this persists.'
+      };
+      
+      return guidance[errorCode] || guidance['UNKNOWN'];
+    }
+
+    function dismissErrorModal() {
+      const modal = document.getElementById('errorModal');
+      if (modal) {
+        modal.classList.add('fade-out');
+        setTimeout(() => modal.remove(), 300);
+      }
+    }
+
+    // ===== USER CONFIRMATION MODAL (from Phase I) =====
     
     function showUserConfirmationModal(userId, userName) {
       const existingModal = document.getElementById('userConfirmModal');
@@ -816,8 +1181,6 @@
       `;
       
       document.body.appendChild(modal);
-      
-      // Auto-dismiss after 2.5 seconds
       setTimeout(() => dismissModal(), 2500);
     }
 
@@ -889,7 +1252,6 @@
           throw new Error('No camera found');
         }
         
-        // Prefer back camera
         const selectedDeviceId = videoInputDevices.find(device => 
           device.label.toLowerCase().includes('back') || 
           device.label.toLowerCase().includes('environment')
@@ -934,8 +1296,8 @@
     }
 
     async function userStart() {
-      // Initialize audio on user interaction (required for iOS)
       await initEnhancedAudio();
+      initHapticCapabilities(); // PHASE II: Test haptic support
       
       triggerHaptic('success');
       document.getElementById("startOverlay").style.display = "none";
@@ -1032,7 +1394,6 @@
         if (isValidUser) {
           userId = clean;
           
-          // Show confirmation modal
           showUserConfirmationModal(userId, "");
           
           document.getElementById("userPanel").style.display = "flex";
@@ -1182,6 +1543,7 @@
       syncSystemCache();
     }
 
+    // PHASE II: Enhanced finishSession with detailed error handling
     async function finishSession() {
       if (!userId || sessionHistory.length === 0 || isProcessing) return;
 
@@ -1225,6 +1587,19 @@
             return;
           }
 
+          // PHASE II: Enhanced error handling with specific codes
+          if (result && result.errorCode) {
+            const errorCode = result.errorCode;
+            const errorMessage = result.message || result.error || "Transaction failed";
+            const details = result.details || {};
+            
+            showErrorModal(errorCode, errorMessage, details);
+            
+            isProcessing = false;
+            document.getElementById("finishBtn").disabled = false;
+            return;
+          }
+
           if (result && (result.error || result.message)) {
             const msg = (result.message || result.error || "SAVE FAILED").toString().toUpperCase();
             updateBanner(msg, "status-error");
@@ -1239,6 +1614,13 @@
         } catch (err) {
           log("Save attempt failed:", attempt, err);
 
+          if (err.name === 'AbortError') {
+            showErrorModal('NETWORK_ERROR', 'Request timed out after 15 seconds', {});
+            isProcessing = false;
+            document.getElementById("finishBtn").disabled = false;
+            return;
+          }
+
           if (attempt < maxRetries) {
             updateBanner("RETRYING " + attempt + " OF " + maxRetries, "status-warning");
             await new Promise(r => setTimeout(r, 700 * attempt));
@@ -1251,7 +1633,7 @@
 
             document.getElementById("statusBanner").onclick = () => {
               document.getElementById("statusBanner").onclick = null;
-              finishSession();
+              showConfirmationModal();
             };
           }
         }
