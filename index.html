@@ -1376,6 +1376,8 @@
     async function syncSystemCache(retryCount = 0) {
       const maxRetries = 3;
       try {
+        updateBanner("🔄 LOADING SYSTEM DATA...", "status-waiting");
+        
         const resp = await fetch(SCRIPT_URL, { method: "GET", cache: "no-cache" });
         if (!resp.ok) throw new Error("HTTP " + resp.status);
         const data = await resp.json();
@@ -1403,14 +1405,32 @@
           inventory: knownIpadsSet.size
         });
 
-        updateBanner(userId ? "✓ READY - SCAN NEXT IPAD" : "👤 STEP 1: SCAN YOUR USER ID", "status-waiting");
+        // CRITICAL: Validate that essential data is loaded
+        if (knownUsersSet.size === 0) {
+          throw new Error("User roster is empty - check User Roster sheet");
+        }
+        
+        if (knownIpadsSet.size === 0) {
+          throw new Error("iPad inventory is empty - check iPad Inventory sheet");
+        }
+
+        // Success - data loaded
+        const statusMsg = userId 
+          ? `✓ READY - SCAN NEXT IPAD (${knownUsersSet.size} users, ${knownIpadsSet.size} iPads loaded)` 
+          : `👤 READY - SCAN YOUR USER ID (${knownUsersSet.size} users, ${knownIpadsSet.size} iPads loaded)`;
+        
+        updateBanner(statusMsg, "status-success");
+        
+        log("✅ System ready - Users:", knownUsersSet.size, "iPads:", knownIpadsSet.size);
 
       } catch (err) {
         log("Sync failed:", err);
         if (retryCount < maxRetries) {
+          updateBanner(`⚠️ LOADING DATA... (Attempt ${retryCount + 1}/${maxRetries})`, "status-warning");
           setTimeout(() => syncSystemCache(retryCount + 1), 1000 * (retryCount + 1));
         } else {
-          updateBanner("📡 WAITING FOR CONNECTION - SCAN TO CONTINUE", "status-warning");
+          updateBanner("❌ DATA LOAD FAILED - CHECK CONNECTION & RELOAD PAGE", "status-error");
+          log("❌ Critical: Failed to load system data after", maxRetries, "attempts");
         }
       }
     }
@@ -1443,12 +1463,40 @@
 
       // STEP 1: User ID Scan
       if (!userId) {
-        // CRITICAL FIX: Prevent iPad IDs from being accepted as User IDs
-        // Check if scanned code is actually an iPad ID (not a User ID)
+        // CRITICAL FIX #1: Pattern-based validation to detect iPad IDs
+        // iPad IDs typically follow patterns like: IPAD-XXX, IPAD_XXX, IPADXXX, etc.
+        const iPadPatterns = [
+          /^IPAD[-_]?\d+$/i,      // IPAD-111, IPAD_111, IPAD111
+          /^PAD[-_]?\d+$/i,       // PAD-111, PAD_111, PAD111
+          /^TABLET[-_]?\d+$/i,    // TABLET-111, TABLET_111
+          /^ASSET[-_]?\d+$/i,     // ASSET-111, ASSET_111
+          /^\d{3,6}$/,            // Pure numbers like 111, 1234 (common for assets)
+        ];
+        
+        const looksLikeIpadId = iPadPatterns.some(pattern => pattern.test(clean));
+        
+        if (looksLikeIpadId) {
+          updateBanner("❌ THIS LOOKS LIKE AN IPAD ID - SCAN YOUR USER ID FIRST", "status-error");
+          triggerFeedback('error');
+          log("Rejected: Pattern matched iPad ID format:", clean);
+          return;
+        }
+        
+        // CRITICAL FIX #2: Check against known iPad inventory
         if (knownIpadsSet.size > 0 && knownIpadsSet.has(clean)) {
           updateBanner("❌ THIS IS AN IPAD ID - SCAN YOUR USER ID FIRST", "status-error");
           triggerFeedback('error');
-          log("Rejected: iPad ID scanned instead of User ID:", clean);
+          log("Rejected: iPad ID found in inventory:", clean);
+          return;
+        }
+        
+        // CRITICAL FIX #3: REQUIRE cache to be loaded before accepting User IDs
+        if (knownUsersSet.size === 0 && knownIpadsSet.size === 0) {
+          updateBanner("⚠️ LOADING DATA - PLEASE WAIT...", "status-warning");
+          triggerFeedback('warning');
+          log("Cache not loaded yet - rejecting scan");
+          // Trigger sync if not already in progress
+          syncSystemCache();
           return;
         }
         
@@ -1464,15 +1512,11 @@
             return;
           }
         } else {
-          // Offline mode: Accept as user ID only if it's NOT an iPad ID
-          if (knownIpadsSet.size > 0 && knownIpadsSet.has(clean)) {
-            updateBanner("❌ THIS IS AN IPAD ID - SCAN YOUR USER ID FIRST", "status-error");
-            triggerFeedback('error');
-            log("Rejected: iPad ID in offline mode:", clean);
-            return;
-          }
-          isValidUser = true;
-          log("Offline mode: Accepting user ID:", clean);
+          // This should never happen due to Fix #3 above
+          updateBanner("⚠️ DATA NOT LOADED - PLEASE WAIT", "status-warning");
+          triggerFeedback('warning');
+          log("Rejecting scan - cache still loading");
+          return;
         }
 
         if (isValidUser) {
@@ -1491,8 +1535,26 @@
       }
 
       // STEP 2: iPad/Asset ID Scan
-      // CRITICAL FIX: Prevent User IDs from being accepted as iPad IDs
-      // Check if scanned code is actually a User ID (not an iPad ID)
+      // CRITICAL FIX #1: Pattern-based validation to detect User IDs
+      // User IDs typically follow patterns different from iPad IDs
+      const userIdPatterns = [
+        /^STUDENT[-_]?\d+$/i,    // STUDENT-12345, STUDENT_12345
+        /^STAFF[-_]?\d+$/i,      // STAFF-123, STAFF_123
+        /^TEACHER[-_]?\d+$/i,    // TEACHER-123
+        /^USER[-_]?\d+$/i,       // USER-123
+        /^[A-Z]{2,}\d{4,}$/,     // TC12345, ST12345 (prefix + numbers)
+      ];
+      
+      const looksLikeUserId = userIdPatterns.some(pattern => pattern.test(clean));
+      
+      if (looksLikeUserId) {
+        updateBanner("❌ THIS LOOKS LIKE A USER ID - SCAN AN IPAD ASSET TAG", "status-error");
+        triggerFeedback('error');
+        log("Rejected: Pattern matched User ID format:", clean);
+        return;
+      }
+      
+      // CRITICAL FIX #2: Check against known User roster
       if (knownUsersSet.size > 0 && knownUsersSet.has(clean)) {
         updateBanner("❌ THIS IS A USER ID - SCAN AN IPAD ASSET TAG", "status-error");
         triggerFeedback('error');
@@ -1512,15 +1574,11 @@
           return;
         }
       } else {
-        // Offline mode: Accept as iPad ID only if it's NOT a User ID
-        if (knownUsersSet.size > 0 && knownUsersSet.has(clean)) {
-          updateBanner("❌ THIS IS A USER ID - SCAN AN IPAD ASSET TAG", "status-error");
-          triggerFeedback('error');
-          log("Rejected: User ID in offline mode:", clean);
-          return;
-        }
-        isValidAsset = true;
-        log("Offline mode: Accepting asset ID:", clean);
+        // CRITICAL FIX #3: Don't accept anything if cache not loaded
+        updateBanner("⚠️ DATA NOT LOADED - PLEASE WAIT", "status-warning");
+        triggerFeedback('warning');
+        log("Rejecting scan - inventory cache not loaded");
+        return;
       }
 
       if (isValidAsset) {
