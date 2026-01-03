@@ -674,11 +674,76 @@
       background: #3f4b5b;
     }
 
+    /* PHASE III: Status-aware history rows */
+    .history-row.status-pending {
+      border-left: 4px solid #94a3b8;
+    }
+
+    .history-row.status-success {
+      border-left: 4px solid #10b981;
+      background: rgba(16, 185, 129, 0.08);
+    }
+
+    .history-row.status-failed {
+      border-left: 4px solid #ef4444;
+      background: rgba(239, 68, 68, 0.12);
+      animation: failedPulse 0.5s ease-out;
+    }
+
+    @keyframes failedPulse {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.02); }
+      100% { transform: scale(1); }
+    }
+
+    .history-content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
     .history-label{
       font-family:monospace;
       font-weight:600;
       color:#cbd5e1;
       font-size:1rem;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .status-icon {
+      font-size: 1.1rem;
+      line-height: 1;
+    }
+
+    .status-icon.pending {
+      color: #94a3b8;
+    }
+
+    .status-icon.success {
+      color: #10b981;
+    }
+
+    .status-icon.failed {
+      color: #ef4444;
+    }
+
+    .error-reason {
+      font-size: 0.75rem;
+      color: #fca5a5;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-weight: 600;
+      margin-top: 2px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .error-reason::before {
+      content: "⚠️";
+      font-size: 0.85rem;
     }
 
     .delete-btn{
@@ -785,6 +850,7 @@
     let userId = null;
     let sessionHistory = [];
     let historyDom = new Map();
+    let ipadStatus = new Map(); // PHASE III: Track success/failure status per iPad
     let unavailableIpads = [];
     let knownUsersSet = new Set();
     let knownIpadsSet = new Set();
@@ -1466,23 +1532,112 @@
       ensureHistoryVisible_();
 
       const row = document.createElement("div");
-      row.className = "history-row";
+      row.className = "history-row status-pending";
+      row.setAttribute("data-ipad-id", ipadId);
+
+      const content = document.createElement("div");
+      content.className = "history-content";
+
+      const labelWrapper = document.createElement("div");
+      labelWrapper.className = "history-label";
+
+      const statusIcon = document.createElement("span");
+      statusIcon.className = "status-icon pending";
+      statusIcon.textContent = "○";
 
       const label = document.createElement("span");
-      label.className = "history-label";
       label.textContent = ipadId;
+
+      labelWrapper.appendChild(statusIcon);
+      labelWrapper.appendChild(label);
+      content.appendChild(labelWrapper);
 
       const btn = document.createElement("button");
       btn.className = "delete-btn";
       btn.textContent = "DELETE";
       btn.onclick = () => removeById_(ipadId);
 
-      row.appendChild(label);
+      row.appendChild(content);
       row.appendChild(btn);
 
       list.appendChild(row);
       historyDom.set(ipadId, row);
+      ipadStatus.set(ipadId, { status: 'pending' }); // PHASE III: Initialize status
       updateCount_();
+    }
+
+    // PHASE III: Update history row with success/failure status
+    function updateHistoryRowStatus_(ipadId, success, errorMessage = null) {
+      const row = historyDom.get(ipadId);
+      if (!row) return;
+
+      const content = row.querySelector('.history-content');
+      const statusIcon = row.querySelector('.status-icon');
+      
+      // Update status tracking
+      ipadStatus.set(ipadId, { 
+        status: success ? 'success' : 'failed',
+        error: errorMessage 
+      });
+
+      // Update visual state
+      row.classList.remove('status-pending', 'status-success', 'status-failed');
+      statusIcon.classList.remove('pending', 'success', 'failed');
+
+      if (success) {
+        row.classList.add('status-success');
+        statusIcon.classList.add('success');
+        statusIcon.textContent = "✓";
+      } else {
+        row.classList.add('status-failed');
+        statusIcon.classList.add('failed');
+        statusIcon.textContent = "✗";
+
+        // Add error reason if provided
+        if (errorMessage) {
+          // Remove any existing error reason
+          const existingError = content.querySelector('.error-reason');
+          if (existingError) existingError.remove();
+
+          // Convert backend message to user-friendly format
+          const friendlyMessage = getShortErrorMessage_(errorMessage);
+
+          const errorReason = document.createElement("div");
+          errorReason.className = "error-reason";
+          errorReason.textContent = friendlyMessage;
+          content.appendChild(errorReason);
+        }
+      }
+
+      log(`Updated ${ipadId} status:`, success ? 'SUCCESS' : 'FAILED', errorMessage || '');
+    }
+
+    // PHASE III: Convert backend error messages to short, user-friendly format
+    function getShortErrorMessage_(message) {
+      const msg = (message || "").toLowerCase();
+      
+      if (msg.includes("not borrowed") || msg.includes("not currently")) {
+        return "Not checked out";
+      }
+      if (msg.includes("already borrowed") || msg.includes("already checked out")) {
+        return "Already in use";
+      }
+      if (msg.includes("not found") || msg.includes("does not exist")) {
+        return "Not in system";
+      }
+      if (msg.includes("borrowed by") && msg.includes("not ")) {
+        return "Borrowed by someone else";
+      }
+      if (msg.includes("blocked") || msg.includes("maintenance") || msg.includes("reserved")) {
+        return "Reserved/Maintenance";
+      }
+      
+      // Default: truncate long messages
+      if (message.length > 35) {
+        return message.substring(0, 32) + "...";
+      }
+      
+      return message;
     }
 
     function removeById_(ipadId) {
@@ -1492,6 +1647,7 @@
       const el = historyDom.get(ipadId);
       if (el && el.parentNode) el.parentNode.removeChild(el);
       historyDom.delete(ipadId);
+      ipadStatus.delete(ipadId); // PHASE III: Clean up status tracking
 
       updateCount_();
       if (sessionHistory.length === 0) {
@@ -1502,6 +1658,7 @@
 
     function clearHistoryDom_() {
       historyDom.clear();
+      ipadStatus.clear(); // PHASE III: Clear status tracking
       const list = document.getElementById("historyList");
       list.innerHTML = "";
     }
@@ -1519,6 +1676,7 @@
     function resetAll() {
       userId = null;
       sessionHistory = [];
+      ipadStatus.clear(); // PHASE III: Clear status tracking
       isProcessing = false;
       document.getElementById("finishBtn").disabled = false;
       document.getElementById("userPanel").style.display = "none";
@@ -1579,6 +1737,54 @@
           let result = null;
           try { result = await resp.json(); } catch (e) {}
 
+          // PHASE III: Handle partial success - update individual iPad statuses
+          if (result && result.results && Array.isArray(result.results)) {
+            log("Processing individual iPad results:", result.results);
+            
+            // Update each iPad's status in the UI
+            for (const ipadResult of result.results) {
+              const ipadId = (ipadResult.ipadId || "").toString().trim().toUpperCase();
+              const success = ipadResult.success === true;
+              const errorMsg = success ? null : (ipadResult.message || "Transaction failed");
+              
+              updateHistoryRowStatus_(ipadId, success, errorMsg);
+            }
+
+            // If ALL succeeded, proceed to completion
+            if (result.success) {
+              updateBanner("✅ SAVED SUCCESSFULLY - READY FOR NEXT USER", "status-success");
+              triggerFeedback('complete');
+
+              await syncSystemCache();
+
+              setTimeout(resetAll, 700);
+              return;
+            }
+
+            // PARTIAL SUCCESS: Show error but keep failed items visible
+            const successCount = result.results.filter(r => r.success).length;
+            const totalCount = result.results.length;
+            const failedCount = totalCount - successCount;
+
+            if (successCount > 0) {
+              // Some succeeded - show partial success message
+              updateBanner(
+                `⚠️ ${failedCount} FAILED - CHECK ITEMS MARKED WITH ✗`,
+                "status-warning"
+              );
+              triggerFeedback('warning');
+            } else {
+              // All failed - show error
+              updateBanner("❌ ALL ITEMS FAILED - CHECK ERRORS BELOW", "status-error");
+              triggerFeedback('error');
+            }
+
+            isProcessing = false;
+            document.getElementById("finishBtn").disabled = false;
+            return;
+          }
+
+          // Original success handling (if no results array)
           if (result && result.success) {
             updateBanner("✅ SAVED SUCCESSFULLY - READY FOR NEXT USER", "status-success");
             triggerFeedback('complete');
