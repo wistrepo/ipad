@@ -748,7 +748,7 @@
     </div>
   </div>
 
-  <div class="status-banner status-waiting" id="statusBanner">READY TO START</div>
+  <div class="status-banner status-waiting" id="statusBanner">TAP "SCAN QR CODE" TO BEGIN</div>
 
   <div class="user-panel" id="userPanel">
     <div>
@@ -1135,12 +1135,14 @@
 
     function getErrorGuidance(errorCode) {
       const guidance = {
-        'NOT_BORROWED': 'This iPad is not currently checked out. Please verify the asset ID and try again.',
-        'ASSET_NOT_FOUND': 'This iPad ID does not exist in the inventory. Contact an administrator.',
-        'USER_NOT_FOUND': 'User ID not found in roster. Please scan a valid user ID.',
-        'ALREADY_BORROWED': 'This iPad is already checked out to another user.',
-        'NETWORK_ERROR': 'Unable to connect to the server. Check your internet connection and retry.',
-        'UNKNOWN': 'An unexpected error occurred. Please contact support if this persists.'
+        'NOT_BORROWED': '💡 This iPad is not currently checked out. Please verify you scanned the correct asset tag.',
+        'ASSET_NOT_FOUND': '⚠️ This iPad is not in our system. Please contact the tech office for assistance.',
+        'ASSET_BLOCKED': '🔒 This iPad is currently reserved or under maintenance and cannot be borrowed at this time.',
+        'USER_NOT_FOUND': '👤 User ID not recognized. Please scan your student/staff ID card again.',
+        'ALREADY_BORROWED': '📱 This iPad is already checked out to another user. Please select a different iPad.',
+        'VALIDATION_ERROR': '⚠️ This iPad was borrowed by someone else. Only the person who checked it out can return it.',
+        'NETWORK_ERROR': '📡 Cannot connect to server. Please check your internet connection and try again.',
+        'UNKNOWN': '❓ Something went wrong. Please contact tech support if this problem continues.'
       };
       
       return guidance[errorCode] || guidance['UNKNOWN'];
@@ -1335,14 +1337,14 @@
           inventory: knownIpadsSet.size
         });
 
-        updateBanner(userId ? "READY. SCAN NEXT IPAD" : "STEP 1: SCAN USER ID", "status-waiting");
+        updateBanner(userId ? "✓ READY - SCAN NEXT IPAD" : "👤 STEP 1: SCAN YOUR USER ID", "status-waiting");
 
       } catch (err) {
         log("Sync failed:", err);
         if (retryCount < maxRetries) {
           setTimeout(() => syncSystemCache(retryCount + 1), 1000 * (retryCount + 1));
         } else {
-          updateBanner("OFFLINE MODE", "status-warning");
+          updateBanner("📡 WAITING FOR CONNECTION - SCAN TO CONTINUE", "status-warning");
         }
       }
     }
@@ -1365,7 +1367,7 @@
       }
 
       if (clean === lastScanned && (now - lastScanTime) < DUPLICATE_WINDOW) {
-        updateBanner("DUPLICATE SCAN - MOVE TO NEXT", "status-warning");
+        updateBanner("⚠️ ALREADY SCANNED - MOVE TO NEXT IPAD", "status-warning");
         triggerFeedback('warning');
         return;
       }
@@ -1381,7 +1383,7 @@
           if (knownUsersSet.has(clean)) {
             isValidUser = true;
           } else {
-            updateBanner("USER NOT IN ROSTER", "status-error");
+            updateBanner("❌ USER ID NOT RECOGNIZED - SCAN AGAIN", "status-error");
             triggerFeedback('error');
             log("User not in roster:", clean);
             return;
@@ -1398,7 +1400,7 @@
           
           document.getElementById("userPanel").style.display = "flex";
           document.getElementById("currentUserId").innerText = userId;
-          updateBanner("USER OK. NOW SCAN IPADS", "status-success");
+          updateBanner("✅ USER VERIFIED - NOW SCAN IPADS", "status-success");
           
           triggerFeedback('success');
           enterCooldown();
@@ -1413,7 +1415,7 @@
         if (knownIpadsSet.has(clean)) {
           isValidAsset = true;
         } else {
-          updateBanner("UNKNOWN ASSET - NOT IN INVENTORY", "status-error");
+          updateBanner("❌ IPAD NOT IN SYSTEM - CHECK ASSET TAG", "status-error");
           triggerFeedback('error');
           log("Asset not in inventory:", clean);
           return;
@@ -1425,13 +1427,13 @@
 
       if (isValidAsset) {
         if (mode === "borrow" && unavailableIpads.includes(clean)) {
-          updateBanner("UNAVAILABLE (BORROWED OR BLOCKED)", "status-error");
+          updateBanner("❌ CANNOT BORROW - RESERVED OR IN USE", "status-error");
           triggerFeedback('error');
           return;
         }
 
         if (sessionHistory.includes(clean)) {
-          updateBanner("ALREADY IN THIS SESSION", "status-warning");
+          updateBanner("⚠️ ALREADY SCANNED IN THIS SESSION", "status-warning");
           triggerFeedback('warning');
           return;
         }
@@ -1446,7 +1448,7 @@
         return;
       }
 
-      updateBanner("INVALID QR CODE", "status-error");
+      updateBanner("❌ INVALID QR CODE - SCAN AGAIN", "status-error");
       triggerFeedback('error');
     }
 
@@ -1494,7 +1496,7 @@
       updateCount_();
       if (sessionHistory.length === 0) {
         document.getElementById("historyList").style.display = "none";
-        updateBanner(userId ? "READY. SCAN NEXT IPAD" : "STEP 1: SCAN USER ID", "status-waiting");
+        updateBanner(userId ? "✓ READY - SCAN NEXT IPAD" : "👤 STEP 1: SCAN YOUR USER ID", "status-waiting");
       }
     }
 
@@ -1523,7 +1525,7 @@
       document.getElementById("historyList").style.display = "none";
       clearHistoryDom_();
       updateCount_();
-      updateBanner("STEP 1: SCAN USER ID", "status-waiting");
+      updateBanner("👤 STEP 1: SCAN YOUR USER ID", "status-waiting");
       
       if (cooldownTimer) clearTimeout(cooldownTimer);
       exitCooldown();
@@ -1578,7 +1580,7 @@
           try { result = await resp.json(); } catch (e) {}
 
           if (result && result.success) {
-            updateBanner("SAVED. NEXT USER", "status-success");
+            updateBanner("✅ SAVED SUCCESSFULLY - READY FOR NEXT USER", "status-success");
             triggerFeedback('complete');
 
             await syncSystemCache();
