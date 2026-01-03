@@ -1443,6 +1443,15 @@
 
       // STEP 1: User ID Scan
       if (!userId) {
+        // CRITICAL FIX: Prevent iPad IDs from being accepted as User IDs
+        // Check if scanned code is actually an iPad ID (not a User ID)
+        if (knownIpadsSet.size > 0 && knownIpadsSet.has(clean)) {
+          updateBanner("❌ THIS IS AN IPAD ID - SCAN YOUR USER ID FIRST", "status-error");
+          triggerFeedback('error');
+          log("Rejected: iPad ID scanned instead of User ID:", clean);
+          return;
+        }
+        
         let isValidUser = false;
         
         if (knownUsersSet.size > 0) {
@@ -1455,6 +1464,13 @@
             return;
           }
         } else {
+          // Offline mode: Accept as user ID only if it's NOT an iPad ID
+          if (knownIpadsSet.size > 0 && knownIpadsSet.has(clean)) {
+            updateBanner("❌ THIS IS AN IPAD ID - SCAN YOUR USER ID FIRST", "status-error");
+            triggerFeedback('error');
+            log("Rejected: iPad ID in offline mode:", clean);
+            return;
+          }
           isValidUser = true;
           log("Offline mode: Accepting user ID:", clean);
         }
@@ -1475,6 +1491,15 @@
       }
 
       // STEP 2: iPad/Asset ID Scan
+      // CRITICAL FIX: Prevent User IDs from being accepted as iPad IDs
+      // Check if scanned code is actually a User ID (not an iPad ID)
+      if (knownUsersSet.size > 0 && knownUsersSet.has(clean)) {
+        updateBanner("❌ THIS IS A USER ID - SCAN AN IPAD ASSET TAG", "status-error");
+        triggerFeedback('error');
+        log("Rejected: User ID scanned instead of iPad ID:", clean);
+        return;
+      }
+      
       let isValidAsset = false;
       
       if (knownIpadsSet.size > 0) {
@@ -1487,6 +1512,13 @@
           return;
         }
       } else {
+        // Offline mode: Accept as iPad ID only if it's NOT a User ID
+        if (knownUsersSet.size > 0 && knownUsersSet.has(clean)) {
+          updateBanner("❌ THIS IS A USER ID - SCAN AN IPAD ASSET TAG", "status-error");
+          triggerFeedback('error');
+          log("Rejected: User ID in offline mode:", clean);
+          return;
+        }
         isValidAsset = true;
         log("Offline mode: Accepting asset ID:", clean);
       }
@@ -1573,6 +1605,7 @@
 
       const content = row.querySelector('.history-content');
       const statusIcon = row.querySelector('.status-icon');
+      const deleteBtn = row.querySelector('.delete-btn');
       
       // Update status tracking
       ipadStatus.set(ipadId, { 
@@ -1588,10 +1621,21 @@
         row.classList.add('status-success');
         statusIcon.classList.add('success');
         statusIcon.textContent = "✓";
+        
+        // CRITICAL FIX: Hide delete button for successful items
+        // Successful items cannot be deleted - they've been saved to the backend
+        if (deleteBtn) {
+          deleteBtn.style.display = 'none';
+        }
       } else {
         row.classList.add('status-failed');
         statusIcon.classList.add('failed');
         statusIcon.textContent = "✗";
+        
+        // Keep delete button visible for failed items
+        if (deleteBtn) {
+          deleteBtn.style.display = 'block';
+        }
 
         // Add error reason if provided
         if (errorMessage) {
