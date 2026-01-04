@@ -1679,21 +1679,10 @@
         row.classList.add('status-success');
         statusIcon.classList.add('success');
         statusIcon.textContent = "✓";
-        
-        // CRITICAL FIX: Hide delete button for successful items
-        // Successful items cannot be deleted - they've been saved to the backend
-        if (deleteBtn) {
-          deleteBtn.style.display = 'none';
-        }
       } else {
         row.classList.add('status-failed');
         statusIcon.classList.add('failed');
         statusIcon.textContent = "✗";
-        
-        // Keep delete button visible for failed items
-        if (deleteBtn) {
-          deleteBtn.style.display = 'block';
-        }
 
         // Add error reason if provided
         if (errorMessage) {
@@ -1709,6 +1698,13 @@
           errorReason.textContent = friendlyMessage;
           content.appendChild(errorReason);
         }
+      }
+
+      // UX FIX: Hide delete button for ALL items after "Finish and Save"
+      // Once the save operation completes, users should only VIEW results, not edit
+      // This creates a clear "final confirmation" state
+      if (deleteBtn) {
+        deleteBtn.style.display = 'none';
       }
 
       log(`Updated ${ipadId} status:`, success ? 'SUCCESS' : 'FAILED', errorMessage || '');
