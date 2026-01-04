@@ -857,6 +857,7 @@
     let lastScanned = null;
     let lastScanTime = 0;
     let isProcessing = false;
+    let transactionCompleted = false; // PHASE IV: Prevent duplicate saves
     let isInCooldown = false;
     let cooldownTimer = null;
     let codeReader = null;
@@ -1776,6 +1777,7 @@
       sessionHistory = [];
       ipadStatus.clear(); // PHASE III: Clear status tracking
       isProcessing = false;
+      transactionCompleted = false; // PHASE IV: Reset transaction state
       document.getElementById("finishBtn").disabled = false;
       document.getElementById("userPanel").style.display = "none";
       document.getElementById("historyList").style.display = "none";
@@ -1803,9 +1805,16 @@
 
     // PHASE II: Enhanced finishSession with detailed error handling
     async function finishSession() {
+      // PHASE IV: Prevent duplicate saves
+      if (transactionCompleted) {
+        updateBanner("⚠️ ALREADY SAVED - CLICK 'CLEAR' TO START OVER", "status-warning");
+        return;
+      }
+
       if (!userId || sessionHistory.length === 0 || isProcessing) return;
 
       isProcessing = true;
+      transactionCompleted = true; // PHASE IV: Mark transaction as attempted
       document.getElementById("finishBtn").disabled = true;
       updateBanner("SAVING...", "status-warning");
 
@@ -1867,18 +1876,19 @@
             if (successCount > 0) {
               // Some succeeded - show partial success message
               updateBanner(
-                `⚠️ ${failedCount} FAILED - CHECK ITEMS MARKED WITH ✗`,
+                `⚠️ ${failedCount} FAILED - CLICK 'CLEAR' TO START OVER`,
                 "status-warning"
               );
               triggerFeedback('warning');
             } else {
               // All failed - show error
-              updateBanner("❌ ALL ITEMS FAILED - CHECK ERRORS BELOW", "status-error");
+              updateBanner("❌ ALL FAILED - CLICK 'CLEAR' TO START OVER", "status-error");
               triggerFeedback('error');
             }
 
+            // PHASE IV: Keep button disabled - user must click "Clear All" to reset
             isProcessing = false;
-            document.getElementById("finishBtn").disabled = false;
+            // DO NOT re-enable finishBtn - transaction is complete
             return;
           }
 
@@ -1902,16 +1912,17 @@
             showErrorModal(errorCode, errorMessage, details);
             
             isProcessing = false;
-            document.getElementById("finishBtn").disabled = false;
+            // PHASE IV: Keep button disabled - user must click "Clear All"
+            updateBanner("⚠️ ERROR - CLICK 'CLEAR' TO START OVER", "status-error");
             return;
           }
 
           if (result && (result.error || result.message)) {
             const msg = (result.message || result.error || "SAVE FAILED").toString().toUpperCase();
-            updateBanner(msg, "status-error");
+            updateBanner(`❌ ${msg} - CLICK 'CLEAR' TO START OVER`, "status-error");
             triggerFeedback('error');
             isProcessing = false;
-            document.getElementById("finishBtn").disabled = false;
+            // PHASE IV: Keep button disabled - user must click "Clear All"
             return;
           }
 
@@ -1922,8 +1933,9 @@
 
           if (err.name === 'AbortError') {
             showErrorModal('NETWORK_ERROR', 'Request timed out after 15 seconds', {});
+            updateBanner("⚠️ TIMEOUT - CLICK 'CLEAR' TO START OVER", "status-error");
             isProcessing = false;
-            document.getElementById("finishBtn").disabled = false;
+            // PHASE IV: Keep button disabled - user must click "Clear All"
             return;
           }
 
@@ -1932,15 +1944,10 @@
             await new Promise(r => setTimeout(r, 700 * attempt));
           } else {
             triggerFeedback('error');
-            updateBanner("SAVE FAILED. TAP TO RETRY", "status-error");
-
+            updateBanner("❌ SAVE FAILED AFTER 3 ATTEMPTS - CLICK 'CLEAR' TO START OVER", "status-error");
             isProcessing = false;
-            document.getElementById("finishBtn").disabled = false;
-
-            document.getElementById("statusBanner").onclick = () => {
-              document.getElementById("statusBanner").onclick = null;
-              showConfirmationModal();
-            };
+            // PHASE IV: Keep button disabled - user must click "Clear All"
+            // Remove tap-to-retry pattern to prevent confusion
           }
         }
       }
