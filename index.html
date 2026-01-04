@@ -1784,11 +1784,22 @@
     async function clearAll() {
       if (sessionHistory.length === 0 && !userId) return;
 
-      if (confirm("Clear and reset for next user?")) {
-        resetAll();
-        await stopZXingScanner();
-        await initZXingScanner();
+      // PHASE IV: Smart confirmation logic
+      // If transaction completed (already saved), clear immediately without confirmation
+      // If transaction NOT completed (unsaved data), show confirmation
+      const hasUnsavedData = !transactionCompleted && sessionHistory.length > 0;
+      
+      if (hasUnsavedData) {
+        // UNSAVED data exists - confirm before clearing
+        if (!confirm("You have unsaved items. Clear anyway?")) {
+          return; // User cancelled
+        }
       }
+      
+      // Clear immediately (no confirmation needed for saved data)
+      resetAll();
+      await stopZXingScanner();
+      await initZXingScanner();
     }
 
     function resetAll() {
