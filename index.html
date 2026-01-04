@@ -859,6 +859,7 @@
     let isProcessing = false;
     let transactionCompleted = false; // PHASE IV: Prevent duplicate saves
     let isInCooldown = false;
+    let modalVisible = false; // PHASE IV: Block scans during modal display
     let cooldownTimer = null;
     let codeReader = null;
 
@@ -1229,6 +1230,8 @@
       const existingModal = document.getElementById('userConfirmModal');
       if (existingModal) existingModal.remove();
       
+      modalVisible = true; // PHASE IV: Block scans during modal
+      
       const modal = document.createElement('div');
       modal.id = 'userConfirmModal';
       modal.innerHTML = `
@@ -1257,7 +1260,12 @@
       const modal = document.getElementById('userConfirmModal');
       if (modal) {
         modal.classList.add('fade-out');
-        setTimeout(() => modal.remove(), 300);
+        setTimeout(() => {
+          modal.remove();
+          modalVisible = false; // PHASE IV: Re-enable scanning after modal
+        }, 300);
+      } else {
+        modalVisible = false; // Safety: clear flag even if modal already gone
       }
     }
 
@@ -1448,17 +1456,28 @@
       const clean = (decodedText || "").toString().trim().toUpperCase();
       if (!clean) return;
 
+      // PHASE IV: FIX - Block scans during modal display
+      if (modalVisible) {
+        log("Scan blocked - modal is visible");
+        return;
+      }
+
+      // PHASE IV: FIX - Check cooldown
       if (isInCooldown) {
         log("Scan blocked - in cooldown");
         return;
       }
 
+      // PHASE IV: FIX - Check duplicate BEFORE updating lastScanned
+      // Only update lastScanned/lastScanTime when scan is actually processed
       if (clean === lastScanned && (now - lastScanTime) < DUPLICATE_WINDOW) {
-        updateBanner("⚠️ ALREADY SCANNED - MOVE TO NEXT IPAD", "status-warning");
-        triggerFeedback('warning');
+        // Don't show banner repeatedly - silent block to prevent flicker
+        log("Duplicate scan blocked (same code within 2s):", clean);
         return;
       }
 
+      // PHASE IV: FIX - Update these ONLY after passing all checks
+      // This prevents the banner from flickering on continuous camera scans
       lastScanned = clean;
       lastScanTime = now;
 
@@ -1778,6 +1797,7 @@
       ipadStatus.clear(); // PHASE III: Clear status tracking
       isProcessing = false;
       transactionCompleted = false; // PHASE IV: Reset transaction state
+      modalVisible = false; // PHASE IV: Clear modal state
       document.getElementById("finishBtn").disabled = false;
       document.getElementById("userPanel").style.display = "none";
       document.getElementById("historyList").style.display = "none";
