@@ -193,6 +193,214 @@
     .scan-corner.bl{ bottom:0; left:0; border-right:none; border-top:none; }
     .scan-corner.br{ bottom:0; right:0; border-left:none; border-top:none; }
 
+    /* ===== POST-SAVE RESULT MODAL - ENHANCED FEEDBACK ===== */
+    .result-modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(15, 23, 42, 0.98);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 10001;
+      animation: fadeIn 0.2s ease-out;
+    }
+
+    .result-modal-overlay.active {
+      display: flex;
+    }
+
+    .result-modal-content {
+      background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+      border-radius: 24px;
+      padding: 40px 30px;
+      text-align: center;
+      max-width: 90%;
+      width: 460px;
+      box-shadow: 0 25px 50px rgba(0, 0, 0, 0.7);
+      animation: scaleIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+
+    .result-icon {
+      width: 100px;
+      height: 100px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 56px;
+      color: white;
+      margin: 0 auto 24px;
+      animation: scaleIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+
+    .result-icon.success {
+      background: #10b981;
+      border: 4px solid #34d399;
+    }
+
+    .result-icon.error {
+      background: #ef4444;
+      border: 4px solid #f87171;
+    }
+
+    .result-icon.warning {
+      background: #f59e0b;
+      border: 4px solid #fbbf24;
+    }
+
+    .result-modal-content h2 {
+      margin: 0 0 16px;
+      font-size: 32px;
+      color: #fff;
+      font-weight: 900;
+    }
+
+    .result-summary {
+      font-size: 18px;
+      color: #cbd5e1;
+      margin-bottom: 24px;
+      line-height: 1.6;
+    }
+
+    .result-details {
+      background: rgba(15, 23, 42, 0.6);
+      border-radius: 16px;
+      padding: 20px;
+      margin-bottom: 24px;
+      text-align: left;
+    }
+
+    .result-detail-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 8px 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      font-size: 16px;
+    }
+
+    .result-detail-row:last-child {
+      border-bottom: none;
+    }
+
+    .result-detail-label {
+      color: #94a3b8;
+      font-weight: 600;
+    }
+
+    .result-detail-value {
+      color: #fff;
+      font-weight: 800;
+    }
+
+    .result-detail-value.success-count {
+      color: #10b981;
+    }
+
+    .result-detail-value.error-count {
+      color: #ef4444;
+    }
+
+    .result-errors-list {
+      max-height: 200px;
+      overflow-y: auto;
+      margin-top: 16px;
+      text-align: left;
+    }
+
+    .result-error-item {
+      background: rgba(239, 68, 68, 0.2);
+      border-left: 4px solid #ef4444;
+      padding: 12px;
+      margin-bottom: 8px;
+      border-radius: 8px;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    .result-error-ipad {
+      font-weight: 900;
+      color: #fca5a5;
+      font-family: monospace;
+    }
+
+    .result-error-message {
+      color: #fecaca;
+      margin-top: 4px;
+    }
+
+    .result-modal-btn {
+      background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%);
+      color: white;
+      border: none;
+      padding: 16px 40px;
+      border-radius: 14px;
+      font-size: 18px;
+      font-weight: 800;
+      cursor: pointer;
+      transition: all 0.2s;
+      box-shadow: 0 4px 12px rgba(79, 70, 229, 0.4);
+      width: 100%;
+    }
+
+    .result-modal-btn:active {
+      transform: scale(0.98);
+    }
+
+    .result-auto-close {
+      color: #64748b;
+      font-size: 14px;
+      margin-top: 16px;
+      font-style: italic;
+    }
+
+    /* ===== SAVING OVERLAY - ENHANCED FEEDBACK ===== */
+    .saving-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(15, 23, 42, 0.95);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 10000;
+      flex-direction: column;
+    }
+
+    .saving-overlay.active {
+      display: flex;
+    }
+
+    .saving-spinner {
+      width: 60px;
+      height: 60px;
+      border: 5px solid rgba(255, 255, 255, 0.1);
+      border-top-color: #4f46e5;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .saving-text {
+      color: #fff;
+      font-size: 24px;
+      font-weight: 800;
+      margin-top: 24px;
+    }
+
+    .saving-subtext {
+      color: #94a3b8;
+      font-size: 16px;
+      margin-top: 8px;
+    }
+
     /* ===== USER CONFIRMATION MODAL ===== */
     .modal-overlay {
       position: fixed;
@@ -838,6 +1046,36 @@
     <button id="finishBtn" class="finish-btn" onclick="showConfirmationModal()">FINISH & SAVE</button>
   </div>
 
+  <!-- ===== POST-SAVE RESULT MODAL - ENHANCED FEEDBACK ===== -->
+  <div id="resultModal" class="result-modal-overlay">
+    <div class="result-modal-content">
+      <div id="resultIcon" class="result-icon success">
+        ✓
+      </div>
+      <h2 id="resultTitle">Transaction Complete</h2>
+      <div id="resultSummary" class="result-summary">
+        All iPads processed successfully
+      </div>
+      <div id="resultDetails" class="result-details" style="display:none;">
+        <!-- Details populated by JavaScript -->
+      </div>
+      <div id="resultErrors" class="result-errors-list" style="display:none;">
+        <!-- Error list populated by JavaScript -->
+      </div>
+      <button class="result-modal-btn" onclick="closeResultModal()">OK</button>
+      <div id="resultAutoClose" class="result-auto-close" style="display:none;">
+        Auto-closing in <span id="autoCloseTimer">2</span> seconds...
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== SAVING OVERLAY - IMMEDIATE FEEDBACK ===== -->
+  <div id="savingOverlay" class="saving-overlay">
+    <div class="saving-spinner"></div>
+    <div class="saving-text">Saving Transaction...</div>
+    <div class="saving-subtext" id="savingSubtext">Please wait</div>
+  </div>
+
   <script>
     // ===== CONFIG =====
     const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbza6JTVJybMndWQ6dvzR-g8N70nGsyaL1GaROCEzc2ia1_gcjiRD7CrJ2YE5nkI5C8R/exec"; // UPDATE THIS
@@ -1159,6 +1397,171 @@
     async function confirmAndProceed() {
       dismissConfirmationModal();
       await finishSession();
+    }
+
+    // ===== ENHANCED POST-SAVE FEEDBACK MODALS =====
+    
+    /**
+     * Show saving overlay with immediate feedback
+     */
+    function showSavingOverlay(message = "Processing transaction...") {
+      const overlay = document.getElementById('savingOverlay');
+      const subtext = document.getElementById('savingSubtext');
+      subtext.textContent = message;
+      overlay.classList.add('active');
+    }
+    
+    /**
+     * Hide saving overlay
+     */
+    function hideSavingOverlay() {
+      const overlay = document.getElementById('savingOverlay');
+      overlay.classList.remove('active');
+    }
+    
+    /**
+     * Show result modal with transaction summary
+     * @param {string} type - 'success', 'error', or 'warning'
+     * @param {Object} data - Transaction result data
+     */
+    function showResultModal(type, data) {
+      const modal = document.getElementById('resultModal');
+      const icon = document.getElementById('resultIcon');
+      const title = document.getElementById('resultTitle');
+      const summary = document.getElementById('resultSummary');
+      const details = document.getElementById('resultDetails');
+      const errors = document.getElementById('resultErrors');
+      const autoClose = document.getElementById('resultAutoClose');
+      
+      // Reset classes
+      icon.className = `result-icon ${type}`;
+      
+      // Set icon
+      if (type === 'success') {
+        icon.textContent = '✓';
+      } else if (type === 'error') {
+        icon.textContent = '✕';
+      } else if (type === 'warning') {
+        icon.textContent = '⚠';
+      }
+      
+      // Set title and summary
+      const totalCount = data.totalCount || 0;
+      const successCount = data.successCount || 0;
+      const failedCount = data.failedCount || 0;
+      
+      if (type === 'success') {
+        title.textContent = 'Transaction Complete!';
+        summary.textContent = `Successfully ${mode === 'borrow' ? 'borrowed' : 'returned'} ${totalCount} iPad${totalCount > 1 ? 's' : ''}`;
+        details.style.display = 'none';
+        errors.style.display = 'none';
+        
+        // Auto-close after 2 seconds for full success
+        autoClose.style.display = 'block';
+        let countdown = 2;
+        document.getElementById('autoCloseTimer').textContent = countdown;
+        
+        const timer = setInterval(() => {
+          countdown--;
+          if (countdown > 0) {
+            document.getElementById('autoCloseTimer').textContent = countdown;
+          } else {
+            clearInterval(timer);
+            closeResultModal();
+          }
+        }, 1000);
+        
+        // Trigger success feedback
+        triggerFeedback('complete');
+        
+      } else if (type === 'warning') {
+        title.textContent = 'Partial Success';
+        summary.textContent = `${successCount} succeeded, ${failedCount} failed`;
+        
+        // Show details
+        details.style.display = 'block';
+        details.innerHTML = `
+          <div class="result-detail-row">
+            <span class="result-detail-label">Total iPads:</span>
+            <span class="result-detail-value">${totalCount}</span>
+          </div>
+          <div class="result-detail-row">
+            <span class="result-detail-label">Successful:</span>
+            <span class="result-detail-value success-count">${successCount}</span>
+          </div>
+          <div class="result-detail-row">
+            <span class="result-detail-label">Failed:</span>
+            <span class="result-detail-value error-count">${failedCount}</span>
+          </div>
+        `;
+        
+        // Show error list
+        if (data.errors && data.errors.length > 0) {
+          errors.style.display = 'block';
+          errors.innerHTML = data.errors.map(error => `
+            <div class="result-error-item">
+              <div class="result-error-ipad">${error.ipadId}</div>
+              <div class="result-error-message">${error.message}</div>
+            </div>
+          `).join('');
+        }
+        
+        autoClose.style.display = 'none';
+        
+        // Trigger warning feedback
+        triggerFeedback('warning');
+        
+      } else if (type === 'error') {
+        title.textContent = 'Transaction Failed';
+        summary.textContent = failedCount > 0 
+          ? `All ${failedCount} iPad${failedCount > 1 ? 's' : ''} failed to process`
+          : 'Transaction could not be completed';
+        
+        // Show details
+        details.style.display = 'block';
+        details.innerHTML = `
+          <div class="result-detail-row">
+            <span class="result-detail-label">Total iPads:</span>
+            <span class="result-detail-value">${totalCount}</span>
+          </div>
+          <div class="result-detail-row">
+            <span class="result-detail-label">Failed:</span>
+            <span class="result-detail-value error-count">${failedCount}</span>
+          </div>
+        `;
+        
+        // Show error list
+        if (data.errors && data.errors.length > 0) {
+          errors.style.display = 'block';
+          errors.innerHTML = data.errors.map(error => `
+            <div class="result-error-item">
+              <div class="result-error-ipad">${error.ipadId}</div>
+              <div class="result-error-message">${error.message}</div>
+            </div>
+          `).join('');
+        }
+        
+        autoClose.style.display = 'none';
+        
+        // Trigger error feedback
+        triggerFeedback('error');
+      }
+      
+      // Show modal
+      modal.classList.add('active');
+    }
+    
+    /**
+     * Close result modal
+     */
+    function closeResultModal() {
+      const modal = document.getElementById('resultModal');
+      modal.classList.remove('active');
+      
+      // Auto-reset after modal closes
+      setTimeout(() => {
+        resetAll();
+      }, 300);
     }
 
     // ===== PHASE II: ERROR MODAL WITH SPECIFIC CODES =====
@@ -1734,6 +2137,10 @@
     function getShortErrorMessage_(message) {
       const msg = (message || "").toLowerCase();
       
+      // ENHANCED: More specific "wrong user" detection
+      if (msg.includes("borrowed by") && (msg.includes("not by") || msg.includes("not"))) {
+        return "You did not borrow this iPad";
+      }
       if (msg.includes("not borrowed") || msg.includes("not currently")) {
         return "Not checked out";
       }
@@ -1742,9 +2149,6 @@
       }
       if (msg.includes("not found") || msg.includes("does not exist")) {
         return "Not in system";
-      }
-      if (msg.includes("borrowed by") && msg.includes("not ")) {
-        return "Borrowed by someone else";
       }
       if (msg.includes("blocked") || msg.includes("maintenance") || msg.includes("reserved")) {
         return "Reserved/Maintenance";
@@ -1847,6 +2251,9 @@
       isProcessing = true;
       transactionCompleted = true; // PHASE IV: Mark transaction as attempted
       document.getElementById("finishBtn").disabled = true;
+      
+      // ENHANCED: Show immediate saving overlay
+      showSavingOverlay(`Processing ${sessionHistory.length} iPad${sessionHistory.length > 1 ? 's' : ''}...`);
       updateBanner("SAVING...", "status-warning");
 
       const payload = {
@@ -1879,6 +2286,9 @@
           if (result && result.results && Array.isArray(result.results)) {
             log("Processing individual iPad results:", result.results);
             
+            // Collect errors for modal display
+            const errors = [];
+            
             // Update each iPad's status in the UI
             for (const ipadResult of result.results) {
               const ipadId = (ipadResult.ipadId || "").toString().trim().toUpperCase();
@@ -1886,51 +2296,88 @@
               const errorMsg = success ? null : (ipadResult.message || "Transaction failed");
               
               updateHistoryRowStatus_(ipadId, success, errorMsg);
+              
+              // ENHANCED: Collect errors for modal
+              if (!success) {
+                errors.push({
+                  ipadId: ipadId,
+                  message: errorMsg
+                });
+              }
             }
 
-            // If ALL succeeded, proceed to completion
-            if (result.success) {
-              updateBanner("✅ SAVED SUCCESSFULLY - READY FOR NEXT USER", "status-success");
-              triggerFeedback('complete');
-
-              await syncSystemCache();
-
-              setTimeout(resetAll, 700);
-              return;
-            }
-
-            // PARTIAL SUCCESS: Show error but keep failed items visible
             const successCount = result.results.filter(r => r.success).length;
             const totalCount = result.results.length;
             const failedCount = totalCount - successCount;
 
+            // Hide saving overlay
+            hideSavingOverlay();
+
+            // If ALL succeeded, show success modal
+            if (result.success) {
+              updateBanner("✅ SAVED SUCCESSFULLY - READY FOR NEXT USER", "status-success");
+              
+              // ENHANCED: Show success modal with auto-close
+              showResultModal('success', {
+                totalCount: totalCount,
+                successCount: successCount,
+                failedCount: 0,
+                errors: []
+              });
+
+              await syncSystemCache();
+              return;
+            }
+
+            // PARTIAL SUCCESS or ALL FAILED: Show result modal
             if (successCount > 0) {
-              // Some succeeded - show partial success message
+              // Some succeeded - show warning modal
               updateBanner(
-                `⚠️ ${failedCount} FAILED - CLICK 'CLEAR' TO START OVER`,
+                `⚠️ ${failedCount} FAILED - REVIEW ERRORS BELOW`,
                 "status-warning"
               );
-              triggerFeedback('warning');
+              
+              // ENHANCED: Show warning modal with error details
+              showResultModal('warning', {
+                totalCount: totalCount,
+                successCount: successCount,
+                failedCount: failedCount,
+                errors: errors
+              });
             } else {
-              // All failed - show error
-              updateBanner("❌ ALL FAILED - CLICK 'CLEAR' TO START OVER", "status-error");
-              triggerFeedback('error');
+              // All failed - show error modal
+              updateBanner("❌ ALL FAILED - REVIEW ERRORS BELOW", "status-error");
+              
+              // ENHANCED: Show error modal with full error list
+              showResultModal('error', {
+                totalCount: totalCount,
+                successCount: 0,
+                failedCount: failedCount,
+                errors: errors
+              });
             }
 
             // PHASE IV: Keep button disabled - user must click "Clear All" to reset
             isProcessing = false;
-            // DO NOT re-enable finishBtn - transaction is complete
             return;
           }
 
           // Original success handling (if no results array)
           if (result && result.success) {
+            // Hide saving overlay
+            hideSavingOverlay();
+            
             updateBanner("✅ SAVED SUCCESSFULLY - READY FOR NEXT USER", "status-success");
-            triggerFeedback('complete');
+            
+            // ENHANCED: Show success modal
+            showResultModal('success', {
+              totalCount: sessionHistory.length,
+              successCount: sessionHistory.length,
+              failedCount: 0,
+              errors: []
+            });
 
             await syncSystemCache();
-
-            setTimeout(resetAll, 700);
             return;
           }
 
@@ -1940,20 +2387,32 @@
             const errorMessage = result.message || result.error || "Transaction failed";
             const details = result.details || {};
             
+            // Hide saving overlay
+            hideSavingOverlay();
+            
             showErrorModal(errorCode, errorMessage, details);
             
             isProcessing = false;
-            // PHASE IV: Keep button disabled - user must click "Clear All"
             updateBanner("⚠️ ERROR - CLICK 'CLEAR' TO START OVER", "status-error");
             return;
           }
 
           if (result && (result.error || result.message)) {
-            const msg = (result.message || result.error || "SAVE FAILED").toString().toUpperCase();
-            updateBanner(`❌ ${msg} - CLICK 'CLEAR' TO START OVER`, "status-error");
-            triggerFeedback('error');
+            // Hide saving overlay
+            hideSavingOverlay();
+            
+            const msg = (result.message || result.error || "SAVE FAILED").toString();
+            updateBanner(`❌ ${msg.toUpperCase()} - CLICK 'CLEAR' TO START OVER`, "status-error");
+            
+            // ENHANCED: Show error modal
+            showResultModal('error', {
+              totalCount: sessionHistory.length,
+              successCount: 0,
+              failedCount: sessionHistory.length,
+              errors: [{ ipadId: 'SYSTEM', message: msg }]
+            });
+            
             isProcessing = false;
-            // PHASE IV: Keep button disabled - user must click "Clear All"
             return;
           }
 
@@ -1963,22 +2422,45 @@
           log("Save attempt failed:", attempt, err);
 
           if (err.name === 'AbortError') {
+            // Hide saving overlay
+            hideSavingOverlay();
+            
             showErrorModal('NETWORK_ERROR', 'Request timed out after 15 seconds', {});
             updateBanner("⚠️ TIMEOUT - CLICK 'CLEAR' TO START OVER", "status-error");
+            
+            // ENHANCED: Show timeout error modal
+            showResultModal('error', {
+              totalCount: sessionHistory.length,
+              successCount: 0,
+              failedCount: sessionHistory.length,
+              errors: [{ ipadId: 'NETWORK', message: 'Request timed out after 15 seconds' }]
+            });
+            
             isProcessing = false;
-            // PHASE IV: Keep button disabled - user must click "Clear All"
             return;
           }
 
           if (attempt < maxRetries) {
+            // Update saving overlay with retry info
+            showSavingOverlay(`Retrying... (Attempt ${attempt}/${maxRetries})`);
             updateBanner("RETRYING " + attempt + " OF " + maxRetries, "status-warning");
             await new Promise(r => setTimeout(r, 700 * attempt));
           } else {
+            // Hide saving overlay
+            hideSavingOverlay();
+            
             triggerFeedback('error');
             updateBanner("❌ SAVE FAILED AFTER 3 ATTEMPTS - CLICK 'CLEAR' TO START OVER", "status-error");
+            
+            // ENHANCED: Show final error modal
+            showResultModal('error', {
+              totalCount: sessionHistory.length,
+              successCount: 0,
+              failedCount: sessionHistory.length,
+              errors: [{ ipadId: 'SYSTEM', message: 'Failed after 3 retry attempts' }]
+            });
+            
             isProcessing = false;
-            // PHASE IV: Keep button disabled - user must click "Clear All"
-            // Remove tap-to-retry pattern to prevent confusion
           }
         }
       }
