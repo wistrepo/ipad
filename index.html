@@ -2310,14 +2310,19 @@
             const totalCount = result.results.length;
             const failedCount = totalCount - successCount;
 
+            // CRITICAL DEBUG: Log the counts
+            log(`Transaction results: Total=${totalCount}, Success=${successCount}, Failed=${failedCount}, result.success=${result.success}`);
+
             // Hide saving overlay
             hideSavingOverlay();
 
-            // If ALL succeeded, show success modal
-            if (result.success) {
+            // CRITICAL FIX: Check successCount FIRST, not result.success
+            // This prevents showing success modal when backend returns success:false
+            if (successCount === totalCount && totalCount > 0) {
+              // ALL items succeeded
+              log("✅ All items succeeded - showing success modal");
               updateBanner("✅ SAVED SUCCESSFULLY - READY FOR NEXT USER", "status-success");
               
-              // ENHANCED: Show success modal with auto-close
               showResultModal('success', {
                 totalCount: totalCount,
                 successCount: successCount,
@@ -2327,43 +2332,61 @@
 
               await syncSystemCache();
               return;
-            }
-
-            // PARTIAL SUCCESS or ALL FAILED: Show result modal
-            if (successCount > 0) {
-              // Some succeeded - show warning modal
+              
+            } else if (successCount > 0 && failedCount > 0) {
+              // PARTIAL SUCCESS: Some succeeded, some failed
+              log(`⚠️ Partial success - ${successCount} succeeded, ${failedCount} failed`);
               updateBanner(
                 `⚠️ ${failedCount} FAILED - REVIEW ERRORS BELOW`,
                 "status-warning"
               );
               
-              // ENHANCED: Show warning modal with error details
               showResultModal('warning', {
                 totalCount: totalCount,
                 successCount: successCount,
                 failedCount: failedCount,
                 errors: errors
               });
-            } else {
-              // All failed - show error modal
+              
+              isProcessing = false;
+              return;
+              
+            } else if (failedCount === totalCount && totalCount > 0) {
+              // ALL items failed
+              log(`❌ All items failed - ${failedCount} errors`);
               updateBanner("❌ ALL FAILED - REVIEW ERRORS BELOW", "status-error");
               
-              // ENHANCED: Show error modal with full error list
               showResultModal('error', {
                 totalCount: totalCount,
                 successCount: 0,
                 failedCount: failedCount,
                 errors: errors
               });
+              
+              isProcessing = false;
+              return;
+              
+            } else {
+              // Edge case: empty results array
+              log("⚠️ Edge case: No items processed");
+              updateBanner("⚠️ NO ITEMS PROCESSED", "status-warning");
+              
+              showResultModal('error', {
+                totalCount: 0,
+                successCount: 0,
+                failedCount: 0,
+                errors: [{ ipadId: 'SYSTEM', message: 'No items were processed' }]
+              });
+              
+              isProcessing = false;
+              return;
             }
-
-            // PHASE IV: Keep button disabled - user must click "Clear All" to reset
-            isProcessing = false;
-            return;
           }
 
           // Original success handling (if no results array)
-          if (result && result.success) {
+          // CRITICAL FIX: This should ONLY execute if there's no results array
+          if (result && result.success && (!result.results || !Array.isArray(result.results))) {
+            log("⚠️ Legacy response format (no results array) - showing success");
             // Hide saving overlay
             hideSavingOverlay();
             
