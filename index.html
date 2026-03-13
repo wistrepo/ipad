@@ -1092,6 +1092,8 @@
     let unavailableIpads = [];
     let knownUsersSet = new Set();
     let knownIpadsSet = new Set();
+    let userTypesMap = {};      // v13.3: userId(upper) → "STUDENT" | "TEACHER"
+    let borrowedByUserMap = {}; // v13.3: userId(upper) → current borrow count from sheet
     let lastScanned = null;
     let lastScanTime = 0;
     let isProcessing = false;
@@ -1611,6 +1613,7 @@
         'ASSET_BLOCKED': '🔒 This iPad is currently reserved or under maintenance and cannot be borrowed at this time.',
         'USER_NOT_FOUND': '👤 User ID not recognized. Please scan your student/staff ID card again.',
         'ALREADY_BORROWED': '📱 This iPad is already checked out to another user. Please select a different iPad.',
+        'BORROW_LIMIT_EXCEEDED': '📵 You already have an iPad checked out. Please return it before borrowing another one.',
         'VALIDATION_ERROR': '⚠️ This iPad was borrowed by someone else. Only the person who checked it out can return it.',
         'NETWORK_ERROR': '📡 Cannot connect to server. Please check your internet connection and try again.',
         'UNKNOWN': '❓ Something went wrong. Please contact tech support if this problem continues.'
@@ -1624,6 +1627,50 @@
       if (modal) {
         modal.classList.add('fade-out');
         setTimeout(() => modal.remove(), 300);
+      }
+    }
+
+    // v13.3: Dedicated modal shown when student tries to scan a 2nd iPad
+    function showBorrowLimitModal(uid) {
+      const existing = document.getElementById('borrowLimitModal');
+      if (existing) existing.remove();
+
+      modalVisible = true;
+
+      const modal = document.createElement('div');
+      modal.id = 'borrowLimitModal';
+      modal.innerHTML = `
+        <div class="modal-overlay">
+          <div class="modal-content" style="border-color: var(--warning);">
+            <div class="checkmark-icon" style="background: var(--warning); font-size: 44px;">📵</div>
+            <h2 style="color: var(--warning);">Borrow Limit Reached</h2>
+            <div class="user-info">
+              <strong style="color: var(--warning);">${uid}</strong>
+              You already have an iPad checked out.
+            </div>
+            <div class="next-step" style="border-color: var(--warning); background: rgba(245,158,11,0.1);">
+              <div class="arrow-icon" style="color: var(--warning);">↩</div>
+              <p>Please <strong>return your current iPad first</strong> before borrowing another.</p>
+            </div>
+            <button class="modal-close" style="background: var(--warning);" onclick="dismissBorrowLimitModal()">OK, Got It</button>
+          </div>
+        </div>
+      `;
+
+      document.body.appendChild(modal);
+      setTimeout(() => dismissBorrowLimitModal(), 4000);
+    }
+
+    function dismissBorrowLimitModal() {
+      const modal = document.getElementById('borrowLimitModal');
+      if (modal) {
+        modal.classList.add('fade-out');
+        setTimeout(() => {
+          modal.remove();
+          modalVisible = false;
+        }, 300);
+      } else {
+        modalVisible = false;
       }
     }
 
@@ -1810,6 +1857,19 @@
             .map(x => (x || "").toString().trim().toUpperCase())
             .filter(Boolean)
         );
+
+        // v13.3: store user types and current borrow counts for client-side limit enforcement
+        userTypesMap = {};
+        const rawTypes = data.userTypes || {};
+        for (const uid in rawTypes) {
+          userTypesMap[uid.toUpperCase()] = (rawTypes[uid] || "").toString().trim().toUpperCase();
+        }
+
+        borrowedByUserMap = {};
+        const rawBorrowed = data.borrowedByUser || {};
+        for (const uid in rawBorrowed) {
+          borrowedByUserMap[uid.toUpperCase()] = rawBorrowed[uid] || 0;
+        }
 
         log("Cache synced:", {
           unavailable: unavailableIpads.length,
@@ -2010,6 +2070,24 @@
           triggerFeedback('error');
           return;
         }
+
+        // ── v13.3: CLIENT-SIDE BORROW LIMIT GUARD ────────────────────────────
+        // Prevent students from scanning a 2nd iPad before even hitting Save.
+        // Uses userTypesMap and borrowedByUserMap from the last syncSystemCache().
+        if (mode === "borrow" && userId) {
+          const userType = userTypesMap[userId] || "";
+          if (userType === "STUDENT") {
+            const alreadyHeld = borrowedByUserMap[userId] || 0;
+            const sessionCount = sessionHistory.length; // scanned this session so far
+            if (alreadyHeld + sessionCount >= 1) {
+              updateBanner("❌ BORROW LIMIT: RETURN YOUR CURRENT IPAD FIRST", "status-error");
+              triggerFeedback('error');
+              showBorrowLimitModal(userId);
+              return;
+            }
+          }
+        }
+        // ── END BORROW LIMIT GUARD ────────────────────────────────────────────
 
         if (sessionHistory.includes(clean)) {
           updateBanner("⚠️ ALREADY SCANNED IN THIS SESSION", "status-warning");
