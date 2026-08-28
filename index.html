@@ -1946,33 +1946,6 @@
 
       // STEP 1: User ID Scan
       if (!userId) {
-        // CRITICAL FIX #1: Pattern-based validation to detect iPad IDs
-        // iPad IDs typically follow patterns like: IPAD-XXX, IPAD_XXX, IPADXXX, etc.
-        const iPadPatterns = [
-          /^IPAD[-_]?\d+$/i,      // IPAD-111, IPAD_111, IPAD111
-          /^PAD[-_]?\d+$/i,       // PAD-111, PAD_111, PAD111
-          /^TABLET[-_]?\d+$/i,    // TABLET-111, TABLET_111
-          /^ASSET[-_]?\d+$/i,     // ASSET-111, ASSET_111
-          /^\d{3,6}$/,            // Pure numbers like 111, 1234 (common for assets)
-        ];
-        
-        const looksLikeIpadId = iPadPatterns.some(pattern => pattern.test(clean));
-        
-        if (looksLikeIpadId) {
-          updateBanner("❌ THIS LOOKS LIKE AN IPAD ID - SCAN YOUR USER ID FIRST", "status-error");
-          triggerFeedback('error');
-          log("Rejected: Pattern matched iPad ID format:", clean);
-          return;
-        }
-        
-        // CRITICAL FIX #2: Check against known iPad inventory
-        if (knownIpadsSet.size > 0 && knownIpadsSet.has(clean)) {
-          updateBanner("❌ THIS IS AN IPAD ID - SCAN YOUR USER ID FIRST", "status-error");
-          triggerFeedback('error');
-          log("Rejected: iPad ID found in inventory:", clean);
-          return;
-        }
-        
         // CRITICAL FIX #3: REQUIRE cache to be loaded before accepting User IDs
         if (knownUsersSet.size === 0 && knownIpadsSet.size === 0) {
           updateBanner("⚠️ LOADING DATA - PLEASE WAIT...", "status-warning");
@@ -1982,38 +1955,59 @@
           syncSystemCache();
           return;
         }
-        
-        let isValidUser = false;
-        
-        if (knownUsersSet.size > 0) {
-          if (knownUsersSet.has(clean)) {
-            isValidUser = true;
-          } else {
-            updateBanner("❌ USER ID NOT RECOGNIZED - SCAN AGAIN", "status-error");
-            triggerFeedback('error');
-            log("User not in roster:", clean);
-            return;
-          }
-        } else {
-          // This should never happen due to Fix #3 above
-          updateBanner("⚠️ DATA NOT LOADED - PLEASE WAIT", "status-warning");
-          triggerFeedback('warning');
-          log("Rejecting scan - cache still loading");
-          return;
-        }
 
-        if (isValidUser) {
+        // CRITICAL FIX #1 (REORDERED 2026-08): Check the real roster FIRST.
+        // A registered User ID is always accepted, even if it happens to be
+        // a pure number that would otherwise match the iPad-pattern heuristic
+        // below (e.g. 6-digit student IDs like "410302").
+        if (knownUsersSet.size > 0 && knownUsersSet.has(clean)) {
           userId = clean;
-          
+
           showUserConfirmationModal(userId, "");
-          
+
           document.getElementById("userPanel").style.display = "flex";
           document.getElementById("currentUserId").innerText = userId;
           updateBanner("✅ USER VERIFIED - NOW SCAN IPADS", "status-success");
-          
+
           triggerFeedback('success');
           enterCooldown();
+          return;
         }
+
+        // CRITICAL FIX #2: Check against known iPad inventory
+        if (knownIpadsSet.size > 0 && knownIpadsSet.has(clean)) {
+          updateBanner("❌ THIS IS AN IPAD ID - SCAN YOUR USER ID FIRST", "status-error");
+          triggerFeedback('error');
+          log("Rejected: iPad ID found in inventory:", clean);
+          return;
+        }
+
+        // Not a known user and not a known iPad. Fall back to the
+        // pattern heuristic only now, to give a more helpful hint when the
+        // scan looks like an iPad/asset tag that isn't in inventory yet.
+        // iPad IDs typically follow patterns like: IPAD-XXX, IPAD_XXX, IPADXXX, etc.
+        const iPadPatterns = [
+          /^IPAD[-_]?\d+$/i,      // IPAD-111, IPAD_111, IPAD111
+          /^PAD[-_]?\d+$/i,       // PAD-111, PAD_111, PAD111
+          /^TABLET[-_]?\d+$/i,    // TABLET-111, TABLET_111
+          /^ASSET[-_]?\d+$/i,     // ASSET-111, ASSET_111
+          /^\d{3,6}$/,            // Pure numbers like 111, 1234 (common for assets)
+        ];
+
+        const looksLikeIpadId = iPadPatterns.some(pattern => pattern.test(clean));
+
+        if (looksLikeIpadId) {
+          updateBanner("❌ THIS LOOKS LIKE AN IPAD ID - SCAN YOUR USER ID FIRST", "status-error");
+          triggerFeedback('error');
+          log("Rejected: Pattern matched iPad ID format:", clean);
+          return;
+        }
+
+        // Genuinely unrecognized: not a known user, not a known iPad, and
+        // doesn't match any iPad-like pattern either.
+        updateBanner("❌ USER ID NOT RECOGNIZED - SCAN AGAIN", "status-error");
+        triggerFeedback('error');
+        log("User not in roster:", clean);
         return;
       }
 
